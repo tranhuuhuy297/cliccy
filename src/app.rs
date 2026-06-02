@@ -18,7 +18,9 @@ use crate::{config, monitor, ui};
 pub struct AppState {
     pub store: Store,
     pub window: gtk::ApplicationWindow,
-    pub search: gtk::SearchEntry,
+    /// Bare text widget (not a themed `SearchEntry`) so the search field can be
+    /// styled flat to match the design instead of carrying Adwaita entry chrome.
+    pub search: gtk::Text,
     pub list: gtk::ListBox,
     /// Clipboard read/write backend chosen for this session (Wayland or X11).
     pub backend: Backend,

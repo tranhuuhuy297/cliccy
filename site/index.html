@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cliccy — clipboard history for Linux</title>
-  <meta name="description" content="A lightweight, keyboard-driven clipboard history manager for Linux. Maccy-style popup built with Rust + GTK4. Works on X11 and Wayland." />
+  <meta name="description" content="A lightweight, keyboard-driven clipboard history manager for Linux — text and images. Maccy-style popup built with Rust + GTK4. Works on X11 and Wayland." />
   <meta name="theme-color" content="#1e1e2e" />
 
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Cliccy — clipboard history for Linux" />
-  <meta property="og:description" content="A lightweight, keyboard-driven clipboard history manager for Linux. Built with Rust + GTK4." />
+  <meta property="og:description" content="A lightweight, keyboard-driven clipboard history manager for Linux — text and images. Built with Rust + GTK4." />
   <meta property="og:url" content="https://tranhuuhuy297.github.io/cliccy/" />
 
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -45,8 +45,8 @@
         <span class="eyebrow">Rust · GTK4 · Linux</span>
         <h1>Your clipboard,<br /><span class="grad">finally remembered.</span></h1>
         <p class="lede">
-          Keyboard-driven clipboard history for Linux. Hotkey, type to
-          search, Enter. X11 + Wayland.
+          Keyboard-driven clipboard history for Linux — text and images.
+          Hotkey, type to search, Enter. X11 + Wayland.
         </p>
         <div class="hero-install">
           <code class="hero-cmd"><span class="p">$</span> <span class="t-cmd">curl</span> <span class="t-flag">-fsSL</span> <span class="t-url">https://raw.githubusercontent.com/tranhuuhuy297/cliccy/main/install.sh</span> <span class="t-pipe">| bash</span></code>
@@ -69,22 +69,97 @@
       </div>
 
       <div class="hero-demo" aria-hidden="true">
-        <div class="popup">
-          <div class="popup-search">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <span class="typed">git rebase<span class="caret"></span></span>
+        <div class="cpopup">
+          <div class="cpopup-header">
+            <span class="cpopup-logo">
+              <svg viewBox="0 0 48 48" width="26" height="26">
+                <defs>
+                  <linearGradient id="cl-g" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#cba6f7"/>
+                    <stop offset="0.5" stop-color="#f5c2e7"/>
+                    <stop offset="1" stop-color="#89b4fa"/>
+                  </linearGradient>
+                </defs>
+                <g fill="none" stroke="url(#cl-g)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="16.5" y="8" width="15" height="7" rx="2"/>
+                  <path d="M31.5 11.5h3.5A3.5 3.5 0 0 1 38.5 15v21A3.5 3.5 0 0 1 35 39.5H13A3.5 3.5 0 0 1 9.5 36V15A3.5 3.5 0 0 1 13 11.5h3.5"/>
+                  <path d="M16.5 22h15M16.5 28h9"/>
+                </g>
+              </svg>
+            </span>
+            <div class="cpopup-search focus">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <span class="cpopup-placeholder">Search clipboard history…<span class="caret"></span></span>
+              <span class="cpopup-count">14</span>
+            </div>
           </div>
-          <ul class="popup-list">
-            <li class="row active"><span class="badge">⌥1</span><span class="row-text">git rebase -i HEAD~3</span><span class="pin">📌</span></li>
-            <li class="row"><span class="badge">⌥2</span><span class="row-text">github.com/tranhuuhuy297/cliccy</span></li>
-            <li class="row"><span class="badge">⌥3</span><span class="row-text">sudo apt install xclip wl-clipboard</span></li>
-            <li class="row"><span class="badge">⌥4</span><span class="row-text">cargo build --release</span></li>
+
+          <ul class="cpopup-list">
+            <li class="group-label">
+              <span class="pin-glyph"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 4h6l-1 6 3 3H7l3-3-1-6Z"/></svg></span>
+              Pinned
+            </li>
+
+            <li class="crow sel">
+              <span class="crow-num">1</span>
+              <span class="crow-kind"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l4 4-4 4M12 16h6"/></svg></span>
+              <span class="crow-body"><span class="crow-text mono">git rebase -i HEAD~3</span></span>
+              <span class="crow-time">2d</span>
+              <span class="crow-actions">
+                <span class="crow-act on"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 4h6l-1 6 3 3H7l3-3-1-6Z"/></svg></span>
+                <span class="crow-act danger"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg></span>
+              </span>
+            </li>
+
+            <li class="crow">
+              <span class="crow-num">2</span>
+              <span class="crow-kind"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg></span>
+              <span class="crow-body"><span class="crow-text">huy@cliccy.dev</span></span>
+              <span class="crow-time">5d</span>
+            </li>
+
+            <li class="group-label">Recent</li>
+
+            <li class="crow">
+              <span class="crow-num">3</span>
+              <span class="crow-kind"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 13.5 14 9M8.5 11 6 13.5a3 3 0 0 0 4.2 4.3L12 16M15.5 13l1.5-1.5A3 3 0 0 0 12.8 7L11 8.8"/></svg></span>
+              <span class="crow-body"><span class="crow-text mono">github.com/tranhuuhuy297/cliccy</span></span>
+              <span class="crow-time">12s</span>
+            </li>
+
+            <li class="crow">
+              <span class="crow-num">4</span>
+              <span class="crow-thumb" style="background-image:linear-gradient(135deg,#cba6f7 0%,#f5c2e7 45%,#89b4fa 100%)"></span>
+              <span class="crow-body">
+                <span class="crow-text">Screenshot from 2026-06-02 14-22-08.png</span>
+                <span class="crow-sub">1512 × 982 · PNG</span>
+              </span>
+              <span class="crow-time">3m</span>
+            </li>
+
+            <li class="crow">
+              <span class="crow-num">5</span>
+              <span class="crow-kind"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l4 4-4 4M12 16h6"/></svg></span>
+              <span class="crow-body"><span class="crow-text mono">sudo apt install libgtk-4-dev xclip wl-clipboard</span></span>
+              <span class="crow-time">9m</span>
+            </li>
+
+            <li class="crow">
+              <span class="crow-num">6</span>
+              <span class="crow-kind color-chip" style="background:#cba6f7"></span>
+              <span class="crow-body"><span class="crow-text mono">#cba6f7</span></span>
+              <span class="crow-time">14m</span>
+            </li>
           </ul>
-          <div class="popup-foot">
-            <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
-            <span><kbd>↵</kbd> copy</span>
-            <span><kbd>⌃P</kbd> pin</span>
-            <span><kbd>esc</kbd> close</span>
+
+          <div class="cpopup-foot">
+            <span class="hint"><kbd>↵</kbd> copy</span>
+            <span class="hint"><kbd>⌥</kbd><kbd>1-9</kbd> pick</span>
+            <span class="hint"><kbd>⌃P</kbd> pin</span>
+            <span class="hint"><kbd>Del</kbd> remove</span>
+            <span class="hint"><kbd>esc</kbd> close</span>
+            <span class="foot-spacer"></span>
+            <span class="brand-tag">cliccy</span>
           </div>
         </div>
       </div>
@@ -99,6 +174,11 @@
           <p>Type to filter, arrows to move, <code>Alt+1–9</code> to quick-pick.</p>
         </article>
         <article class="card">
+          <div class="card-icon">🖼️</div>
+          <h3>Text &amp; images</h3>
+          <p>Captures copied text and PNG images, with thumbnails inline.</p>
+        </article>
+        <article class="card">
           <div class="card-icon">📌</div>
           <h3>Pin snippets</h3>
           <p>Pin with <code>Ctrl+P</code>. Pinned items never expire.</p>
@@ -107,6 +187,11 @@
           <div class="card-icon">⚡</div>
           <h3>Zero jitter</h3>
           <p>Event-driven via X11 XFIXES — reads only on real changes.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">🫥</div>
+          <h3>No dock icon</h3>
+          <p>A clean popup that auto-hides on focus loss — no taskbar clutter.</p>
         </article>
         <article class="card">
           <div class="card-icon">🪟</div>

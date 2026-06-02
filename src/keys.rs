@@ -67,9 +67,9 @@ fn selected_entry_id(state: &Shared) -> Option<i64> {
 
 fn activate_selected(state: &Shared) {
     let index = state.list.selected_row().map(|r| r.index() as usize);
-    let content = index.and_then(|i| state.current.borrow().get(i).map(|e| e.content.clone()));
-    if let Some(c) = content {
-        ui::copy(state, &c);
+    let entry = index.and_then(|i| state.current.borrow().get(i).cloned());
+    if let Some(entry) = entry {
+        ui::copy_entry(state, &entry);
     }
 }
 

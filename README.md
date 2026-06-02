@@ -5,8 +5,8 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
 ## Features
 
-- Resident daemon that records everything you copy (text)
-- Fast type-to-search popup with full keyboard control
+- Resident daemon that records what you copy — text **and PNG images**
+- Fast type-to-search popup with full keyboard control (image thumbnails inline)
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
 - SQLite-backed, capped at 200 unpinned entries
 - Single small binary, dark Catppuccin theme, no dock icon

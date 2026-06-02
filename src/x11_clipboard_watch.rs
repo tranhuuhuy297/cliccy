@@ -13,14 +13,13 @@ use std::os::fd::AsRawFd;
 use std::rc::Rc;
 
 use gtk::glib;
-use gtk::prelude::WidgetExt;
 use x11rb::connection::{Connection, RequestConnection};
 use x11rb::protocol::xfixes::{self, SelectionEventMask};
 use x11rb::protocol::xproto::ConnectionExt as _;
 use x11rb::protocol::Event;
 
 use crate::app::Shared;
-use crate::ui;
+use crate::monitor;
 
 /// Attempt to start XFIXES watching. Returns `false` if X is unreachable or the
 /// extension is missing, so the caller can fall back to polling.
@@ -72,30 +71,14 @@ pub fn try_install(state: &Shared) -> bool {
             }
         }
         if changed {
-            capture(&state_cb);
+            monitor::capture(&state_cb);
         }
         glib::ControlFlow::Continue
     });
 
     // Record whatever is already on the clipboard at startup.
-    capture(state);
+    monitor::capture(state);
     true
-}
-
-/// Read the current clipboard and store it if it is new, non-empty text.
-fn capture(state: &Shared) {
-    let Some(text) = state.backend.read() else {
-        return;
-    };
-    let is_new = state.last_seen.borrow().as_deref() != Some(text.as_str());
-    if !is_new || text.trim().is_empty() {
-        return;
-    }
-    *state.last_seen.borrow_mut() = Some(text.clone());
-    let _ = state.store.record(&text);
-    if state.window.is_visible() {
-        ui::refresh(state);
-    }
 }
 
 fn intern_atom(conn: &impl Connection, name: &[u8]) -> Option<u32> {
