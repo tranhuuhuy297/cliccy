@@ -176,6 +176,7 @@ pub fn build(app: &Application) -> Shared {
         window: window.clone(),
         search: search.clone(),
         list: list.clone(),
+        scroller: scroller.clone(),
         backend,
         current: RefCell::new(Vec::new()),
         last_seen: RefCell::new(None),

@@ -63,11 +63,15 @@ fn number_chip(index: usize) -> Label {
 fn leading(entry: &Entry) -> GtkBox {
     let chip = GtkBox::new(Orientation::Horizontal, 0);
     chip.set_valign(gtk::Align::Center);
+    // Explicitly non-expanding so the chip keeps its 26px box in the row even
+    // though its child expands to fill (which would otherwise propagate up).
+    chip.set_hexpand(false);
 
     match entry.kind {
         Kind::Image => {
             chip.add_css_class("cliccy-thumb");
             if let Some(pic) = entry.image.as_deref().and_then(thumbnail) {
+                center_in_chip(&pic);
                 chip.append(&pic);
             }
         }
@@ -76,16 +80,28 @@ fn leading(entry: &Entry) -> GtkBox {
             if let Some(rgba) = as_color(text) {
                 chip.add_css_class("cliccy-kind");
                 chip.add_css_class("color-chip");
-                chip.append(&swatch(rgba));
+                let sw = swatch(rgba);
+                center_in_chip(&sw);
+                chip.append(&sw);
             } else {
                 chip.add_css_class("cliccy-kind");
                 if let Some(img) = stroke_icon(glyph_for(text), SUBTEXT, 15) {
+                    center_in_chip(&img);
                     chip.append(&img);
                 }
             }
         }
     }
     chip
+}
+
+/// Make a chip's child fill the chip box and sit dead-centre. The child expands
+/// to the chip's fixed size, then centres its own (smaller) drawn content.
+fn center_in_chip(child: &impl IsA<gtk::Widget>) {
+    child.set_hexpand(true);
+    child.set_vexpand(true);
+    child.set_halign(gtk::Align::Center);
+    child.set_valign(gtk::Align::Center);
 }
 
 /// The middle column: the text preview (plus a small sub-label for images).

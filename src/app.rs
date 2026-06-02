@@ -22,6 +22,9 @@ pub struct AppState {
     /// styled flat to match the design instead of carrying Adwaita entry chrome.
     pub search: gtk::Text,
     pub list: gtk::ListBox,
+    /// Scrolled container wrapping the list, so keyboard navigation can scroll
+    /// the selected row back into view (selecting a row does not auto-scroll).
+    pub scroller: gtk::ScrolledWindow,
     /// Clipboard read/write backend chosen for this session (Wayland or X11).
     pub backend: Backend,
     /// Entries currently shown in the list, in row order (for index lookups).

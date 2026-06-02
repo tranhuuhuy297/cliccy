@@ -51,12 +51,32 @@ fn move_selection(state: &Shared, delta: i32) {
     let next = (current + delta).clamp(0, count - 1);
     if let Some(row) = state.list.row_at_index(next) {
         state.list.select_row(Some(&row));
+        scroll_row_into_view(state, &row);
     }
 }
 
 fn select_index(state: &Shared, index: usize) {
     if let Some(row) = state.list.row_at_index(index as i32) {
         state.list.select_row(Some(&row));
+        scroll_row_into_view(state, &row);
+    }
+}
+
+/// Selecting a row programmatically does not move the scrollbar, so nudge the
+/// scrolled window's vertical adjustment just enough to keep `row` visible.
+fn scroll_row_into_view(state: &Shared, row: &gtk::ListBoxRow) {
+    let alloc = row.allocation();
+    let row_top = alloc.y() as f64;
+    let row_bottom = row_top + alloc.height() as f64;
+
+    let adj = state.scroller.vadjustment();
+    let view_top = adj.value();
+    let view_bottom = view_top + adj.page_size();
+
+    if row_top < view_top {
+        adj.set_value(row_top);
+    } else if row_bottom > view_bottom {
+        adj.set_value(row_bottom - adj.page_size());
     }
 }
 

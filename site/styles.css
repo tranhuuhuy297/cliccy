@@ -56,21 +56,24 @@ code { font-family: var(--mono); }
 /* ---------- Header ---------- */
 .site-header {
   position: sticky;
-  top: 0;
+  top: 0.7rem;
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   max-width: var(--max);
-  margin: 0 auto;
-  padding: 1rem 1.5rem;
-  background: rgba(30, 30, 46, 0.72);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(108, 112, 134, 0.18);
+  margin: 0.7rem auto 0;
+  padding: 0.6rem 0.7rem 0.6rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(24, 24, 37, 0.6);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(108, 112, 134, 0.2);
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 800; }
+.brand { display: flex; align-items: center; gap: 0.55rem; font-weight: 800; }
 .brand-mark {
   display: grid;
   place-items: center;
@@ -78,18 +81,69 @@ code { font-family: var(--mono); }
   border-radius: 10px;
   color: var(--crust);
   background: linear-gradient(135deg, var(--mauve), var(--blue));
+  box-shadow: 0 4px 14px -4px rgba(203, 166, 247, 0.55);
 }
-.brand-name { font-size: 1.15rem; letter-spacing: -0.02em; }
+.brand-name { font-size: 1.12rem; letter-spacing: -0.02em; }
+.brand-badge {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mauve);
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(203, 166, 247, 0.12);
+  border: 1px solid rgba(203, 166, 247, 0.22);
+  transform: translateY(-1px);
+}
+
+/* center nav */
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 27, 0.5);
+  border: 1px solid rgba(108, 112, 134, 0.14);
+}
+.site-nav a {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--subtext);
+  transition: color 0.18s, background 0.18s;
+}
+.site-nav a:hover { color: var(--text); background: rgba(203, 166, 247, 0.1); }
+
+.header-actions { display: flex; align-items: center; gap: 0.6rem; }
 
 .ghost-btn {
   display: inline-flex; align-items: center; gap: 0.45rem;
-  padding: 0.5rem 0.9rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.9rem;
   border: 1px solid rgba(108, 112, 134, 0.35);
   border-radius: 999px;
   font-weight: 600;
   transition: border-color 0.18s, background 0.18s;
 }
 .ghost-btn:hover { border-color: var(--mauve); background: rgba(203, 166, 247, 0.08); }
+.star-pill {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--yellow);
+  border-radius: 999px;
+  background: rgba(249, 226, 175, 0.12);
+  border: 1px solid rgba(249, 226, 175, 0.2);
+}
+
+/* responsive: collapse nav on small screens */
+@media (max-width: 720px) {
+  .site-nav { display: none; }
+  .ghost-btn .star-pill { display: none; }
+}
 
 /* ---------- Hero ---------- */
 .hero {
@@ -350,16 +404,84 @@ code { font-family: var(--mono); }
   gap: 1.2rem;
 }
 .card {
-  background: linear-gradient(180deg, rgba(49, 50, 68, 0.4), rgba(24, 24, 37, 0.4));
+  --ic: var(--mauve);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg, rgba(49, 50, 68, 0.45), rgba(24, 24, 37, 0.45));
   border: 1px solid rgba(108, 112, 134, 0.2);
   border-radius: var(--radius);
-  padding: 1.6rem;
-  transition: transform 0.18s, border-color 0.18s;
+  padding: 1.7rem 1.6rem;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s, box-shadow 0.25s;
 }
-.card:hover { transform: translateY(-4px); border-color: rgba(203, 166, 247, 0.4); }
-.card-icon { font-size: 1.7rem; margin-bottom: 0.8rem; }
+/* per-card accent colors */
+.card.c-mauve  { --ic: var(--mauve); }
+.card.c-blue   { --ic: var(--blue); }
+.card.c-peach  { --ic: var(--peach); }
+.card.c-yellow { --ic: var(--yellow); }
+.card.c-pink   { --ic: var(--pink); }
+.card.c-green  { --ic: var(--green); }
+
+/* top accent sheen */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ic), transparent);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+/* radial glow that follows the icon */
+.card::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -10%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ic) 18%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: -1;
+  pointer-events: none;
+}
+.card:hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--ic) 45%, transparent);
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.6),
+              0 0 0 1px color-mix(in srgb, var(--ic) 12%, transparent);
+}
+.card:hover::before { opacity: 1; }
+.card:hover::after { opacity: 1; }
+
+.card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  margin-bottom: 1.1rem;
+  color: var(--ic);
+  border-radius: 12px;
+  background: linear-gradient(155deg,
+              color-mix(in srgb, var(--ic) 20%, transparent),
+              color-mix(in srgb, var(--ic) 6%, transparent));
+  border: 1px solid color-mix(in srgb, var(--ic) 24%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s, box-shadow 0.25s;
+}
+.card-icon svg { width: 1.5rem; height: 1.5rem; display: block; }
+.card:hover .card-icon {
+  transform: scale(1.08) rotate(-3deg);
+  background: linear-gradient(155deg,
+              color-mix(in srgb, var(--ic) 34%, transparent),
+              color-mix(in srgb, var(--ic) 12%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+              0 6px 16px -6px color-mix(in srgb, var(--ic) 50%, transparent);
+}
 .card h3 { font-size: 1.15rem; margin-bottom: 0.5rem; letter-spacing: -0.01em; }
-.card p { color: var(--subtext); font-size: 0.95rem; }
+.card p { color: var(--subtext); font-size: 0.95rem; line-height: 1.55; }
 .card code, .hero-note code {
   font-family: var(--mono);
   font-size: 0.85em;
