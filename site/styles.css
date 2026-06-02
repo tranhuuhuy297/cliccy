@@ -119,6 +119,7 @@ code { font-family: var(--mono); }
   line-height: 1.05;
   letter-spacing: -0.03em;
   font-weight: 800;
+  text-wrap: balance;
 }
 .grad {
   background: linear-gradient(110deg, var(--mauve), var(--pink) 45%, var(--blue));
