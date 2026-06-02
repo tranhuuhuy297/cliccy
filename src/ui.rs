@@ -5,7 +5,7 @@ use gtk::{
     gdk, glib, Application, ApplicationWindow, Box as GtkBox, EventControllerKey, Label, ListBox,
     ListBoxRow, Orientation, ScrolledWindow, SearchEntry,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::app::{AppState, Shared};
@@ -90,6 +90,7 @@ pub fn build(app: &Application) -> Shared {
         current: RefCell::new(Vec::new()),
         last_seen: RefCell::new(None),
         hold: RefCell::new(None),
+        suppress_focus_hide: Cell::new(false),
     });
 
     wire_events(&state);
@@ -143,6 +144,19 @@ fn wire_events(state: &Shared) {
     state.window.connect_map(|w| {
         if let Some(xid) = x11_xid(w) {
             crate::x11_window_hints::activate(xid);
+        }
+    });
+
+    // Auto-hide when focus leaves (click elsewhere), like Maccy/Spotlight. This
+    // keeps `is_visible` in sync with what the user sees, so the hotkey toggle
+    // doesn't get stuck "hiding" an already-dismissed popup. `suppress_focus_hide`
+    // covers the brief unfocused moment during the show/raise transition.
+    let s = state.clone();
+    state.window.connect_is_active_notify(move |w| {
+        if w.is_active() {
+            s.suppress_focus_hide.set(false);
+        } else if w.is_visible() && !s.suppress_focus_hide.get() {
+            hide(&s);
         }
     });
 }
@@ -239,6 +253,8 @@ pub fn copy(state: &Shared, content: &str) {
 }
 
 pub fn show(state: &Shared) {
+    // Suppress focus-out auto-hide until the popup has actually gained focus.
+    state.suppress_focus_hide.set(true);
     state.search.set_text("");
     refresh(state);
     state.window.present();

@@ -115,13 +115,14 @@ code { font-family: var(--mono); }
 }
 
 .hero h1 {
-  font-size: clamp(2.4rem, 5.5vw, 3.8rem);
-  line-height: 1.05;
+  font-size: clamp(2.2rem, 4.4vw, 3rem);
+  line-height: 1.1;
   letter-spacing: -0.03em;
   font-weight: 800;
-  text-wrap: balance;
 }
 .grad {
+  /* punchline must stay on one line — never split "finally remembered." */
+  white-space: nowrap;
   background: linear-gradient(110deg, var(--mauve), var(--pink) 45%, var(--blue));
   -webkit-background-clip: text;
   background-clip: text;

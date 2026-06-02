@@ -7,7 +7,7 @@
 
 use gtk::prelude::*;
 use gtk::{gio, glib, Application};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::clipboard_backend::Backend;
@@ -31,6 +31,10 @@ pub struct AppState {
     /// guard releases the hold and lets the daemon exit, so it lives as long
     /// as the shared state does.
     pub hold: RefCell<Option<gio::ApplicationHoldGuard>>,
+    /// True during the show transition (before the window first gains focus),
+    /// so the focus-out auto-hide doesn't fire on the brief unfocused moment
+    /// while the popup is still being raised.
+    pub suppress_focus_hide: Cell<bool>,
 }
 
 pub type Shared = Rc<AppState>;
