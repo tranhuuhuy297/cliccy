@@ -1,0 +1,29 @@
+[package]
+name = "cliccy"
+version = "0.1.0"
+edition = "2021"
+description = "A clipboard history manager for Linux — Maccy-style, built with GTK4."
+license = "MIT"
+
+[[bin]]
+name = "cliccy"
+path = "src/main.rs"
+
+[dependencies]
+# GTK4 bindings. v4_6 keeps the source compatible down to Ubuntu 22.04 (GTK 4.6),
+# while still building/running fine against newer runtimes (24.04 ships 4.14).
+gtk = { package = "gtk4", version = "0.9", features = ["v4_6"] }
+# Bundled SQLite => no libsqlite3-dev apt dependency required.
+rusqlite = { version = "0.32", features = ["bundled"] }
+dirs = "5"
+# X11 XFIXES for event-driven clipboard-change detection (works under XWayland),
+# avoiding the focus jitter and process churn of timer-based polling.
+x11rb = { version = "0.13", features = ["xfixes"] }
+# Access the popup's XWayland window XID so we can mark it skip-taskbar and keep
+# it out of the GNOME dock.
+gdk4-x11 = "0.9"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
