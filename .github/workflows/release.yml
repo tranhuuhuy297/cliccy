@@ -1,0 +1,52 @@
+name: release
+
+# Build a release binary and attach it to the GitHub Release whenever a version
+# tag is pushed, so `install.sh` can download a prebuilt binary instead of
+# cloning the repo and compiling on every user's machine.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Build on the oldest supported distro (Ubuntu 22.04 / GTK 4.6) so the
+    # dynamically linked binary stays forward-compatible with newer systems.
+    # The crate already pins the gtk4 `v4_6` feature for the same reason.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Stage release assets
+        run: |
+          mkdir -p dist
+          cp target/release/cliccy dist/cliccy-linux-x86_64
+          cp assets/com.cliccy.Cliccy.svg dist/com.cliccy.Cliccy.svg
+          # Bare hash only — install.sh compares it against the downloaded binary.
+          sha256sum dist/cliccy-linux-x86_64 | awk '{print $1}' \
+            > dist/cliccy-linux-x86_64.sha256
+
+      - name: Publish to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          assets="dist/cliccy-linux-x86_64 dist/cliccy-linux-x86_64.sha256 dist/com.cliccy.Cliccy.svg"
+          # Create the release on first push of the tag; if it already exists
+          # (e.g. re-run), just (re)upload the assets in place.
+          gh release create "${GITHUB_REF_NAME}" $assets \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+          || gh release upload "${GITHUB_REF_NAME}" $assets \
+            --repo "${GITHUB_REPOSITORY}" --clobber

@@ -5,7 +5,9 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
 ## Demo
 
-<img src="docs/cliccy-demo.png" alt="Cliccy demo" width="300">
+<p align="center">
+  <img src="docs/cliccy-demo.png" alt="Cliccy demo" width="360">
+</p>
 
 
 ## Features
@@ -36,7 +38,8 @@ sudo dnf install gtk4-devel
 
 ## Install
 
-One line — build + install + GNOME hotkey + autostart (clones the repo):
+One line — downloads the prebuilt binary, then sets up the GNOME hotkey +
+autostart (no checkout, no compile):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tranhuuhuy297/cliccy/main/install.sh | bash
@@ -45,13 +48,18 @@ curl -fsSL https://raw.githubusercontent.com/tranhuuhuy297/cliccy/main/install.s
 Append `-s -- '<Super>V'` to pick your own hotkey. From a checkout:
 
 ```bash
-./install.sh                 # build + install + hotkey + autostart
+./install.sh                 # install + hotkey + autostart
 ./install.sh '<Super>V'      # optional: choose your own hotkey
 ```
 
 Installs to `~/.local/bin/cliccy`, registers a GNOME shortcut (default
 **Ctrl+Alt+V**), adds a login autostart entry, and launches the daemon. Ensure
 `~/.local/bin` is on your `PATH`.
+
+The prebuilt binary is built on Ubuntu 22.04 (GTK 4.6) and works on x86_64
+Linux with GTK4 installed. The installer **builds from source automatically**
+when there's no prebuilt for your arch, the download fails, or you're running
+from a local checkout. Force a source build with `CLICCY_FROM_SOURCE=1`.
 
 Manual build:
 
@@ -60,6 +68,18 @@ cargo build --release
 ./target/release/cliccy daemon &     # background monitor
 ./target/release/cliccy toggle       # open/close the popup
 ```
+
+## Uninstall
+
+One line — stops the daemon, drops the hotkey, removes the binary, autostart
+entry, and icon:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tranhuuhuy297/cliccy/main/uninstall.sh | bash
+```
+
+Append `-s -- --purge` to also wipe clipboard history. From a checkout:
+`./uninstall.sh` (or `./uninstall.sh --purge`).
 
 ## Usage
 
