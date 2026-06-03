@@ -96,6 +96,21 @@ In the popup: type to filter, `↑`/`↓` to move, `Enter`/click to copy & close
 `Alt+1…9` to quick-pick a row, `Ctrl+P` to pin/unpin, `Delete` to remove, `Esc`
 to close.
 
+## Change your hotkey
+
+Already installed and just want a different key? Re-register the binding — no
+reinstall needed. It overwrites the existing shortcut in place:
+
+```bash
+cliccy install-hotkey '<Super>v'   # set a new hotkey (Super+V)
+cliccy install-hotkey              # back to the default Ctrl+Alt+v
+cliccy uninstall-hotkey            # remove it entirely
+```
+
+Use a **lowercase** letter (`v`, not `V`) — GNOME reads an uppercase letter as
+also requiring Shift. On non-GNOME desktops (KDE, Sway, Hyprland…), edit your
+compositor's keyboard shortcut to run `cliccy toggle` instead.
+
 ## How it works
 
 A single `cliccy` process is the GApplication primary instance (the daemon). It
