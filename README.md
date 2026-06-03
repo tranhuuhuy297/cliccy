@@ -5,8 +5,6 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
 ## Demo
 
-<!-- Open the popup (Ctrl+Alt+V) and take a screenshot of it, then save it as
-     docs/cliccy-demo.png. -->
 ![Cliccy demo](docs/cliccy-demo.png)
 
 ## Features
