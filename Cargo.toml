@@ -1,6 +1,6 @@
 [package]
 name = "cliccy"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 description = "A clipboard history manager for Linux — Maccy-style, built with GTK4."
 license = "MIT"

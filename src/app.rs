@@ -64,12 +64,6 @@ pub fn run() -> glib::ExitCode {
         // Keep the daemon resident even though the window starts hidden; the
         // guard is stored so it is not dropped at the end of this closure.
         *shared.hold.borrow_mut() = Some(app.hold());
-        // Pre-warm the popup: realize it now (hidden, never mapped) so its
-        // XWayland surface and EWMH hints already exist before the first hotkey
-        // press. Without this the first show pays the realize+map cost and the
-        // focus/raise request races an unmapped surface, so the popup often opens
-        // behind the active window and needs a second press.
-        WidgetExt::realize(&shared.window);
         *startup_state.borrow_mut() = Some(shared);
     });
 
