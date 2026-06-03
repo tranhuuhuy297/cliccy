@@ -40,10 +40,16 @@ pub fn make_row(state: &Shared, entry: &Entry, index: usize) -> ListBoxRow {
     row
 }
 
-/// The 1-based position chip shown on every row. Rows 1–9 double as Alt-quick-pick
-/// targets; the rest are positional only.
+/// The 1-based position chip shown on rows 1–9, which double as Alt-quick-pick
+/// targets. Rows past the 9th get a blank chip (Alt+digit only fires for 1–9),
+/// keeping the column width aligned without showing an unreachable number.
 fn number_chip(index: usize) -> Label {
-    let num = Label::new(Some(&(index + 1).to_string()));
+    let text = if index < 9 {
+        (index + 1).to_string()
+    } else {
+        String::new()
+    };
+    let num = Label::new(Some(&text));
     num.set_xalign(0.5);
     num.set_valign(gtk::Align::Center);
     num.add_css_class("cliccy-num");
