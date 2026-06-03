@@ -262,13 +262,13 @@ fn wire_events(state: &Shared) {
     // is otherwise left unfocused behind the active window by focus-steal
     // prevention, so the user never sees it. Re-assert centering here too, in
     // case the WM placed the window itself on (re)map.
-    state.window.connect_map(|w| {
-        if let Some(xid) = x11_xid(w) {
-            crate::x11_window_hints::activate(xid);
-            // Keep-above must be (re)requested via client message post-map; the
-            // pre-map property set in `apply_static_hints` doesn't stick.
-            crate::x11_window_hints::raise_above(xid);
-        }
+    let s = state.clone();
+    state.window.connect_map(move |w| {
+        // Re-assert front-most + focused, with retries: a single client message
+        // often reaches Mutter before the XWayland surface finishes mapping and
+        // is dropped, leaving the popup behind the active window (the cause of
+        // "press the hotkey several times before it appears"). See request_front.
+        request_front(&s);
         // Center *after* the map settles: Mutter ignores a move issued mid-map
         // (it applies its own placement), but honours one once the window is
         // mapped. Deferring to an idle tick runs it just after the map storm.
@@ -452,6 +452,33 @@ pub fn copy_entry(state: &Shared, entry: &Entry) {
     hide(state);
 }
 
+/// Ask the WM to focus + raise the popup, then re-send the request a few times
+/// over ~300ms. A single `_NET_ACTIVE_WINDOW` / `_NET_WM_STATE_ABOVE` client
+/// message frequently races the XWayland surface map and is dropped by Mutter,
+/// so the popup opens unfocused behind the active window and the user has to
+/// press the hotkey repeatedly. Re-sending on a short schedule lands the request
+/// once the surface is actually mapped. Each retry stops early once the window
+/// is focused; the messages are idempotent while it isn't. No-op under Wayland
+/// (no XID).
+fn request_front(state: &Shared) {
+    fn send(state: &Shared) {
+        if let Some(xid) = x11_xid(&state.window) {
+            crate::x11_window_hints::activate(xid);
+            crate::x11_window_hints::raise_above(xid);
+        }
+    }
+    send(state);
+    for delay in [60u64, 140, 260] {
+        let s = state.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(delay), move || {
+            // Keep retrying only while it's still up but stuck behind/unfocused.
+            if s.window.is_visible() && !s.window.is_active() {
+                send(&s);
+            }
+        });
+    }
+}
+
 pub fn show(state: &Shared) {
     // Suppress focus-out auto-hide until the popup actually gains focus. The WM
     // emits a transient active→inactive flicker while raising the popup, and the
@@ -472,10 +499,7 @@ pub fn show(state: &Shared) {
     // the active window unfocused (GNOME focus-steal prevention), no map fires, so
     // it would never be re-raised. Re-assert here too — these are idempotent EWMH
     // client messages, harmless to send when already on top. No-op under Wayland.
-    if let Some(xid) = x11_xid(&state.window) {
-        crate::x11_window_hints::activate(xid);
-        crate::x11_window_hints::raise_above(xid);
-    }
+    request_front(state);
 
     // Fallback clear so `suppress_focus_hide` can never stick `true` forever when
     // the WM never grants focus (popup opened behind). The auto-hide is

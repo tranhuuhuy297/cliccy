@@ -163,6 +163,12 @@ echo "==> Starting the daemon now"
 pkill -f "${BIN_DIR}/cliccy daemon" 2>/dev/null || true
 nohup "${BIN_DIR}/cliccy" daemon >/dev/null 2>&1 &
 
+# Give the daemon a moment to register on the session bus and build its window,
+# then open the popup once. This warms the first (slowest) window map so the
+# first real hotkey press is responsive, and shows the user Cliccy is working.
+sleep 2
+"${BIN_DIR}/cliccy" show >/dev/null 2>&1 || true
+
 echo
-echo "Done. Press ${HOTKEY} to open Cliccy."
+echo "Done. Cliccy is open — press ${HOTKEY} any time to toggle it."
 echo "Make sure ${BIN_DIR} is on your PATH."
