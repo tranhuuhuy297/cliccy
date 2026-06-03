@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::clipboard_backend::Backend;
 use crate::store::{Entry, Store};
-use crate::{config, monitor, ui};
+use crate::{config, monitor, tray, ui};
 
 /// Shared, single-threaded application state passed into every GTK closure.
 pub struct AppState {
@@ -58,6 +58,9 @@ pub fn run() -> glib::ExitCode {
     app.connect_startup(move |app| {
         let shared = ui::build(app);
         monitor::install(&shared);
+        // Persistent top-bar tray icon (StatusNotifierItem); daemon-only since
+        // this closure runs solely in the primary instance.
+        tray::install(app, &shared);
         // Keep the daemon resident even though the window starts hidden; the
         // guard is stored so it is not dropped at the end of this closure.
         *shared.hold.borrow_mut() = Some(app.hold());

@@ -52,7 +52,6 @@ const CSS: &str = "
 .cliccy-num { min-width: 22px; min-height: 19px; color: #6c7086;
     font-family: \"JetBrainsMono Nerd Font\", monospace; font-size: 11px; font-weight: 600;
     background-color: alpha(#6c7086, 0.16); border-radius: 6px; }
-.cliccy-num.ghost { background-color: transparent; }
 .cliccy-list row:selected .cliccy-num { color: #cba6f7;
     background-color: alpha(#cba6f7, 0.16); }
 
@@ -251,15 +250,27 @@ fn wire_events(state: &Shared) {
     state.window.connect_realize(|w| {
         if let Some(xid) = x11_xid(w) {
             crate::x11_window_hints::apply_static_hints(xid);
+            // Center before the first map so the popup appears centered with no
+            // visible jump.
+            if let Some((dw, dh)) = device_size(w) {
+                crate::x11_window_hints::center_on_primary(xid, dw, dh);
+            }
         }
     });
 
     // Each time it maps, ask the WM to focus/raise it — a hotkey-spawned popup
     // is otherwise left unfocused behind the active window by focus-steal
-    // prevention, so the user never sees it.
+    // prevention, so the user never sees it. Re-assert centering here too, in
+    // case the WM placed the window itself on (re)map.
     state.window.connect_map(|w| {
         if let Some(xid) = x11_xid(w) {
             crate::x11_window_hints::activate(xid);
+            // Keep-above must be (re)requested via client message post-map; the
+            // pre-map property set in `apply_static_hints` doesn't stick.
+            crate::x11_window_hints::raise_above(xid);
+            if let Some((dw, dh)) = device_size(w) {
+                crate::x11_window_hints::center_on_primary(xid, dw, dh);
+            }
         }
     });
 
@@ -282,6 +293,23 @@ fn wire_events(state: &Shared) {
 fn x11_xid(window: &ApplicationWindow) -> Option<u32> {
     let surface = window.surface()?;
     surface.downcast::<gdk4_x11::X11Surface>().ok().map(|x| x.xid() as u32)
+}
+
+/// The window's size in device pixels (logical size × scale factor), used to
+/// compute the centered position. Falls back to the allocated size if the
+/// default size isn't set. `None` if no positive size is known yet.
+///
+/// Assumes GTK's integer `scale_factor` matches the XWayland surface's device
+/// scale; under fractional scaling the two can disagree and shift the popup by
+/// half the rounding error. Fine for the common 1×/2× cases.
+fn device_size(window: &ApplicationWindow) -> Option<(u32, u32)> {
+    let scale = window.scale_factor().max(1);
+    let width = window.default_width().max(window.width());
+    let height = window.default_height().max(window.height());
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+    Some(((width * scale) as u32, (height * scale) as u32))
 }
 
 /// Rebuild the visible list from the database, applying the current search filter.

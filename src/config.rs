@@ -7,7 +7,7 @@ use std::path::PathBuf;
 pub const APP_ID: &str = "com.cliccy.Cliccy";
 
 /// Maximum number of unpinned history entries kept; pinned entries are never trimmed.
-pub const MAX_UNPINNED: usize = 200;
+pub const MAX_UNPINNED: usize = 20;
 
 /// Per-user data directory, e.g. ~/.local/share/cliccy.
 pub fn data_dir() -> PathBuf {

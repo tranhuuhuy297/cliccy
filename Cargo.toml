@@ -25,10 +25,19 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 dirs = "5"
 # X11 XFIXES for event-driven clipboard-change detection (works under XWayland),
 # avoiding the focus jitter and process churn of timer-based polling.
-x11rb = { version = "0.13", features = ["xfixes"] }
+x11rb = { version = "0.13", features = ["xfixes", "randr"] }
 # Access the popup's XWayland window XID so we can mark it skip-taskbar and keep
 # it out of the GNOME dock.
 gdk4-x11 = "0.9"
+# StatusNotifierItem tray icon for the GNOME top bar. Pure Rust over zbus — no
+# libdbus/libappindicator C dependency, matching the bundled-everything approach.
+# Ubuntu 22.04+ ships the AppIndicator extension by default.
+ksni = "0.3"
+# Forwards tray callbacks (on ksni's D-Bus thread) to the glib main thread.
+async-channel = "2"
+# A minimal current-thread runtime to host ksni's async D-Bus service off the
+# glib main loop. `rt` only — no macros, net, or fs features needed.
+tokio = { version = "1", default-features = false, features = ["rt"] }
 
 [profile.release]
 opt-level = "z"
