@@ -85,9 +85,19 @@ pub fn activate(xid: u32) {
 /// it without a visible jump. No-op on the pure-Wayland backend (no X connection
 /// / XID).
 ///
-/// Mutter only honours a client-chosen position when `WM_NORMAL_HINTS` carries
-/// the `USPosition` flag at map time; a bare `ConfigureWindow` is ignored (the
-/// WM applies its own cascade placement). So we set the hint *and* configure.
+/// Centering a GTK4 window under Mutter needs two cooperating mechanisms:
+///
+/// - **Pre-map:** `WM_NORMAL_HINTS` with the `USPosition` flag, so Mutter places
+///   the window centered at first map instead of applying its cascade. GTK also
+///   writes this property, so the flag can be raced away — hence the second part.
+/// - **Post-map:** a `_NET_MOVERESIZE_WINDOW` client message — the EWMH "move
+///   this managed window" request, which Mutter honours regardless of placement
+///   policy once the window is mapped. A bare `ConfigureWindow` during the map
+///   storm is ignored, so this must be sent after the map settles (see the
+///   deferred call in `ui.rs`).
+///
+/// Calling this both before map (via realize) and after (deferred from map) makes
+/// it center with no jump when the hint wins, and reliably centers otherwise.
 pub fn center_on_primary(xid: u32, win_w: u32, win_h: u32) {
     let Ok((conn, screen_num)) = x11rb::connect(None) else {
         return;
@@ -108,6 +118,21 @@ pub fn center_on_primary(xid: u32, win_w: u32, win_h: u32) {
     let y = my + (mh - win_h as i32) / 2;
 
     set_user_position_hint(&conn, xid, x, y, win_w, win_h);
+    if let Some(moveresize) = atom(&conn, b"_NET_MOVERESIZE_WINDOW") {
+        // flags: gravity 0 | x present (1<<8) | y present (1<<9) | source pager
+        // (2<<12). The WM then moves the managed window to (x, y).
+        let flags = (1u32 << 8) | (1 << 9) | (2 << 12);
+        let data = [flags, x as u32, y as u32, win_w, win_h];
+        let event = ClientMessageEvent::new(32, xid, moveresize, data);
+        let _ = conn.send_event(
+            false,
+            root,
+            EventMask::SUBSTRUCTURE_NOTIFY | EventMask::SUBSTRUCTURE_REDIRECT,
+            event,
+        );
+    }
+    // Fallback for WMs without `_NET_MOVERESIZE_WINDOW`; ignored by Mutter mid-map
+    // but harmless.
     let _ = conn.configure_window(xid, &ConfigureWindowAux::new().x(x).y(y));
     let _ = conn.flush();
 }

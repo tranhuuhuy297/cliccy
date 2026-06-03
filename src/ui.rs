@@ -268,21 +268,28 @@ fn wire_events(state: &Shared) {
             // Keep-above must be (re)requested via client message post-map; the
             // pre-map property set in `apply_static_hints` doesn't stick.
             crate::x11_window_hints::raise_above(xid);
-            if let Some((dw, dh)) = device_size(w) {
-                crate::x11_window_hints::center_on_primary(xid, dw, dh);
-            }
         }
+        // Center *after* the map settles: Mutter ignores a move issued mid-map
+        // (it applies its own placement), but honours one once the window is
+        // mapped. Deferring to an idle tick runs it just after the map storm.
+        let w = w.clone();
+        glib::idle_add_local_once(move || {
+            if let Some(xid) = x11_xid(&w) {
+                if let Some((dw, dh)) = device_size(&w) {
+                    crate::x11_window_hints::center_on_primary(xid, dw, dh);
+                }
+            }
+        });
     });
 
-    // Auto-hide when focus leaves (click elsewhere), like Maccy/Spotlight. This
-    // keeps `is_visible` in sync with what the user sees, so the hotkey toggle
-    // doesn't get stuck "hiding" an already-dismissed popup. `suppress_focus_hide`
-    // covers the brief unfocused moment during the show/raise transition.
+    // Auto-hide when focus leaves (click elsewhere), like Maccy/Spotlight. Only
+    // hide on a *genuine* focus-out: `suppress_focus_hide` stays set through the
+    // show/raise transition (cleared by a timer in `show`), so the transient
+    // active→inactive flicker the WM emits while raising the popup doesn't hide
+    // it the instant it appears.
     let s = state.clone();
     state.window.connect_is_active_notify(move |w| {
-        if w.is_active() {
-            s.suppress_focus_hide.set(false);
-        } else if w.is_visible() && !s.suppress_focus_hide.get() {
+        if !w.is_active() && w.is_visible() && !s.suppress_focus_hide.get() {
             hide(&s);
         }
     });
@@ -431,12 +438,24 @@ pub fn copy_entry(state: &Shared, entry: &Entry) {
 }
 
 pub fn show(state: &Shared) {
-    // Suppress focus-out auto-hide until the popup has actually gained focus.
+    // Suppress focus-out auto-hide through the show/raise transition. The WM
+    // emits a transient active→inactive flicker while raising and focusing the
+    // popup; without this grace period that flicker fires the auto-hide and the
+    // popup vanishes the instant it appears ("sometimes doesn't show").
     state.suppress_focus_hide.set(true);
     state.search.set_text("");
     refresh(state);
     state.window.present();
     state.search.grab_focus();
+
+    // End the grace period shortly after. We deliberately do NOT hide here if the
+    // window isn't active: a popup that opened on top but didn't win focus should
+    // stay visible (the user can use, Escape, or toggle it), not vanish. Genuine
+    // focus-out after this point is handled by the is-active watcher.
+    let s = state.clone();
+    glib::timeout_add_local_once(std::time::Duration::from_millis(200), move || {
+        s.suppress_focus_hide.set(false);
+    });
 }
 
 pub fn hide(state: &Shared) {
