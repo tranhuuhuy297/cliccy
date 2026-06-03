@@ -9,6 +9,13 @@ on:
   # Allow manual runs from the Actions tab
   workflow_dispatch:
 
+# The GitHub Pages actions (configure-pages, upload-pages-artifact,
+# deploy-pages) still ship a Node 20 runtime; this opts every JS action into
+# Node 24 ahead of the June 2026 forced cutover. Drop it once those actions
+# publish Node 24 majors.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 # Permissions required by actions/deploy-pages to publish
 permissions:
   contents: read
