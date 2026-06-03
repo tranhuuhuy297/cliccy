@@ -5,24 +5,28 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
 ## Demo
 
-<!-- Record a 5–10s clip (hotkey → type-to-search → ↑/↓ → Ctrl+P pin → Enter
-     paste) and drop it in docs/. A static screenshot of the open popup makes a
-     good fallback. -->
-![Cliccy demo](docs/cliccy-demo.gif)
+<!-- Open the popup (Ctrl+Alt+V) and take a screenshot of it, then save it as
+     docs/cliccy-demo.png. -->
+![Cliccy demo](docs/cliccy-demo.png)
 
 ## Features
 
 - Resident daemon that records what you copy — text **and PNG images**
 - Fast type-to-search popup with full keyboard control (image thumbnails inline)
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
-- SQLite-backed, capped at 200 unpinned entries
-- Single small binary, dark Catppuccin theme, no dock icon
+- SQLite-backed, capped at 20 unpinned entries (pinned never expire)
+- Top-bar tray icon: left-click to open, right-click for
+  open / clear-history / quit — no dock icon, popup still skips the taskbar
+- Single small binary, dark Catppuccin theme
 
 ## Requirements
 
 - Rust (stable) + Cargo, and GTK4 headers
 - Clipboard CLI tools: `xclip` (primary) and `wl-clipboard` (pure-Wayland fallback)
 - SQLite is bundled.
+- Tray icon needs a StatusNotifier host — GNOME's AppIndicator extension, which
+  Ubuntu 22.04+ enables by default. Without it the icon just won't appear; the
+  hotkey popup is unaffected. (No extra apt packages — `ksni` is pure Rust.)
 
 ```bash
 # Debian/Ubuntu

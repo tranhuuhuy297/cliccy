@@ -40,21 +40,13 @@ pub fn make_row(state: &Shared, entry: &Entry, index: usize) -> ListBoxRow {
     row
 }
 
-/// The Alt-1–9 quick-pick chip. Rows past 9 keep the slot (alignment) but drop
-/// the chip background via the `ghost` class.
+/// The 1-based position chip shown on every row. Rows 1–9 double as Alt-quick-pick
+/// targets; the rest are positional only.
 fn number_chip(index: usize) -> Label {
-    let badge = if index < 9 {
-        (index + 1).to_string()
-    } else {
-        String::new()
-    };
-    let num = Label::new(Some(&badge));
+    let num = Label::new(Some(&(index + 1).to_string()));
     num.set_xalign(0.5);
     num.set_valign(gtk::Align::Center);
     num.add_css_class("cliccy-num");
-    if index >= 9 {
-        num.add_css_class("ghost");
-    }
     num
 }
 

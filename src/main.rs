@@ -16,6 +16,7 @@ mod hotkey;
 mod keys;
 mod monitor;
 mod store;
+mod tray;
 mod ui;
 mod ui_row;
 mod x11_clipboard_watch;
