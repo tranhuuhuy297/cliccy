@@ -40,6 +40,13 @@ pub struct AppState {
     /// so the focus-out auto-hide doesn't fire on the brief unfocused moment
     /// while the popup is still being raised.
     pub suppress_focus_hide: Cell<bool>,
+    /// When the popup was last shown. A single hotkey press can reach the daemon
+    /// as two near-simultaneous `cliccy toggle` processes (key repeat, an impatient
+    /// double-press, a tray double-activate); the first shows the popup and the
+    /// second would immediately hide it, leaving nothing visible. A toggle that
+    /// resolves to "hide" within `HIDE_GUARD` of a show is therefore ignored — this
+    /// only ever suppresses a too-soon hide, never a show.
+    pub last_show: Cell<Option<std::time::Instant>>,
 }
 
 pub type Shared = Rc<AppState>;

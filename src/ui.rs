@@ -181,6 +181,7 @@ pub fn build(app: &Application) -> Shared {
         last_seen: RefCell::new(None),
         hold: RefCell::new(None),
         suppress_focus_hide: Cell::new(false),
+        last_show: Cell::new(None),
     });
 
     wire_events(&state);
@@ -468,7 +469,7 @@ fn request_front(state: &Shared) {
         }
     }
     send(state);
-    for delay in [60u64, 140, 260] {
+    for delay in [50u64, 120, 220, 360, 550] {
         let s = state.clone();
         glib::timeout_add_local_once(std::time::Duration::from_millis(delay), move || {
             // Keep retrying only while it's still up but stuck behind/unfocused.
@@ -476,6 +477,14 @@ fn request_front(state: &Shared) {
                 send(&s);
             }
         });
+    }
+}
+
+/// Opt-in diagnostic log (set `CLICCY_LOG=1`), written to the daemon's stderr.
+/// Used to trace show/hide/toggle sequencing when the popup misbehaves.
+fn log(msg: &str) {
+    if std::env::var_os("CLICCY_LOG").is_some() {
+        eprintln!("[cliccy] {msg}");
     }
 }
 
@@ -488,6 +497,9 @@ pub fn show(state: &Shared) {
     // watcher clears this flag on the first real focus and handles genuine
     // focus-out from then on.
     state.suppress_focus_hide.set(true);
+    // Arm the double-fire guard: a near-simultaneous second toggle that would hide
+    // this popup is ignored for HIDE_GUARD (see `toggle`).
+    state.last_show.set(Some(std::time::Instant::now()));
     state.search.set_text("");
     refresh(state);
     state.window.present();
@@ -515,6 +527,13 @@ pub fn hide(state: &Shared) {
     state.window.set_visible(false);
 }
 
+/// A toggle resolving to "hide" within this window of the last show is treated as
+/// a double-fire and ignored, so two racing `cliccy toggle` processes (or a tray
+/// double-activate) can't cancel a show into nothing. Long enough to cover the
+/// variable process-spawn/forward latency between the two; short enough that a
+/// deliberate hide (always well after the popup appeared) is never blocked.
+const HIDE_GUARD: std::time::Duration = std::time::Duration::from_millis(350);
+
 pub fn toggle(state: &Shared) {
     // Hide only when the popup is genuinely up-front *and* focused. A popup the WM
     // opened behind the active window (focus-steal prevention, common from the
@@ -522,9 +541,19 @@ pub fn toggle(state: &Shared) {
     // treating that as "shown" made the next hotkey/Open press hide it, so nothing
     // appeared. When visible-but-not-active, re-`show()` instead — that re-raises
     // and re-focuses it, pulling the stuck popup to the front.
-    if state.window.is_visible() && state.window.is_active() {
+    let (vis, act) = (state.window.is_visible(), state.window.is_active());
+    let since = state.last_show.get().map(|t| t.elapsed().as_millis());
+    if vis && act {
+        // Suppress a hide that lands right after a show (a double-fire) — it would
+        // otherwise blank the popup the user just asked for. Never blocks a show.
+        if state.last_show.get().is_some_and(|t| t.elapsed() < HIDE_GUARD) {
+            log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> SKIP hide (guard)"));
+            return;
+        }
+        log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> hide"));
         hide(state);
     } else {
+        log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> show"));
         show(state);
     }
 }
