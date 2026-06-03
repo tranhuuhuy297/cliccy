@@ -3,6 +3,13 @@
 A lightweight clipboard history manager for Linux — a Maccy-style popup, built
 with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
+## Demo
+
+<!-- Record a 5–10s clip (hotkey → type-to-search → ↑/↓ → Ctrl+P pin → Enter
+     paste) and drop it in docs/. A static screenshot of the open popup makes a
+     good fallback. -->
+![Cliccy demo](docs/cliccy-demo.gif)
+
 ## Features
 
 - Resident daemon that records what you copy — text **and PNG images**
