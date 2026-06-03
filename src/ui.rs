@@ -282,16 +282,31 @@ fn wire_events(state: &Shared) {
         });
     });
 
-    // Auto-hide when focus leaves (click elsewhere), like Maccy/Spotlight. Only
-    // hide on a *genuine* focus-out: `suppress_focus_hide` stays set through the
-    // show/raise transition (cleared by a timer in `show`), so the transient
-    // active→inactive flicker the WM emits while raising the popup doesn't hide
-    // it the instant it appears.
+    // Auto-hide when focus genuinely leaves (click elsewhere), like
+    // Maccy/Spotlight — but never hide mid-show. The hide is armed *by focus*,
+    // not by a timer: `suppress_focus_hide` is set in `show` and cleared the
+    // first time the popup actually gains focus. So a popup the WM opens unfocused
+    // (focus-steal prevention often ignores our activate request when the open
+    // came from the tray-menu grab) stays visible instead of vanishing — the user
+    // can use it, Escape, or toggle. Once it has held focus, a focus-out is
+    // debounced: the WM toggles active off for a beat while raising/lowering, so
+    // we re-check after a short delay and only hide if focus is still gone.
     let s = state.clone();
     state.window.connect_is_active_notify(move |w| {
-        if !w.is_active() && w.is_visible() && !s.suppress_focus_hide.get() {
-            hide(&s);
+        if w.is_active() {
+            // Settled with focus → arm the auto-hide for subsequent focus-out.
+            s.suppress_focus_hide.set(false);
+            return;
         }
+        if !w.is_visible() || s.suppress_focus_hide.get() {
+            return;
+        }
+        let s = s.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+            if !s.window.is_active() && s.window.is_visible() && !s.suppress_focus_hide.get() {
+                hide(&s);
+            }
+        });
     });
 }
 
@@ -438,22 +453,36 @@ pub fn copy_entry(state: &Shared, entry: &Entry) {
 }
 
 pub fn show(state: &Shared) {
-    // Suppress focus-out auto-hide through the show/raise transition. The WM
-    // emits a transient active→inactive flicker while raising and focusing the
-    // popup; without this grace period that flicker fires the auto-hide and the
-    // popup vanishes the instant it appears ("sometimes doesn't show").
+    // Suppress focus-out auto-hide until the popup actually gains focus. The WM
+    // emits a transient active→inactive flicker while raising the popup, and the
+    // tray-menu grab releases focus on an unpredictable delay; suppressing until
+    // first focus (rather than for a fixed grace period) means neither can hide
+    // the popup the instant it appears ("sometimes doesn't show"). The is-active
+    // watcher clears this flag on the first real focus and handles genuine
+    // focus-out from then on.
     state.suppress_focus_hide.set(true);
     state.search.set_text("");
     refresh(state);
     state.window.present();
     state.search.grab_focus();
 
-    // End the grace period shortly after. We deliberately do NOT hide here if the
-    // window isn't active: a popup that opened on top but didn't win focus should
-    // stay visible (the user can use, Escape, or toggle it), not vanish. Genuine
-    // focus-out after this point is handled by the is-active watcher.
+    // Force the popup to the front and re-request focus on every show. `present()`
+    // re-emits `map` (where `connect_map` raises/activates) only on a real
+    // hidden→shown transition; when the window is already mapped but stuck behind
+    // the active window unfocused (GNOME focus-steal prevention), no map fires, so
+    // it would never be re-raised. Re-assert here too — these are idempotent EWMH
+    // client messages, harmless to send when already on top. No-op under Wayland.
+    if let Some(xid) = x11_xid(&state.window) {
+        crate::x11_window_hints::activate(xid);
+        crate::x11_window_hints::raise_above(xid);
+    }
+
+    // Fallback clear so `suppress_focus_hide` can never stick `true` forever when
+    // the WM never grants focus (popup opened behind). The auto-hide is
+    // edge-triggered on focus-out, so re-arming it late only matters for a
+    // *future* focus-out — it can't vanish a stable unfocused popup.
     let s = state.clone();
-    glib::timeout_add_local_once(std::time::Duration::from_millis(200), move || {
+    glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || {
         s.suppress_focus_hide.set(false);
     });
 }
@@ -463,7 +492,13 @@ pub fn hide(state: &Shared) {
 }
 
 pub fn toggle(state: &Shared) {
-    if state.window.is_visible() {
+    // Hide only when the popup is genuinely up-front *and* focused. A popup the WM
+    // opened behind the active window (focus-steal prevention, common from the
+    // tray-menu grab) reports `is_visible() == true` yet the user never saw it;
+    // treating that as "shown" made the next hotkey/Open press hide it, so nothing
+    // appeared. When visible-but-not-active, re-`show()` instead — that re-raises
+    // and re-focuses it, pulling the stuck popup to the front.
+    if state.window.is_visible() && state.window.is_active() {
         hide(state);
     } else {
         show(state);
