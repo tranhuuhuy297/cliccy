@@ -270,17 +270,13 @@ fn wire_events(state: &Shared) {
         // is dropped, leaving the popup behind the active window (the cause of
         // "press the hotkey several times before it appears"). See request_front.
         request_front(&s);
-        // Center *after* the map settles: Mutter ignores a move issued mid-map
-        // (it applies its own placement), but honours one once the window is
-        // mapped. Deferring to an idle tick runs it just after the map storm.
-        let w = w.clone();
-        glib::idle_add_local_once(move || {
-            if let Some(xid) = x11_xid(&w) {
-                if let Some((dw, dh)) = device_size(&w) {
-                    crate::x11_window_hints::center_on_primary(xid, dw, dh);
-                }
-            }
-        });
+        // Center *after* the map settles, with retries. Mutter ignores a move
+        // issued mid-map (it applies its own cascade placement); a single deferred
+        // move still loses the race on a *cold* first map, leaving the popup at the
+        // top-left until a later map. Re-issuing on a short schedule lands the move
+        // once the surface has settled. Each attempt is idempotent — a no-op once
+        // the window is already centered.
+        center_with_retries(w);
     });
 
     // Auto-hide when focus genuinely leaves (click elsewhere), like
@@ -309,6 +305,25 @@ fn wire_events(state: &Shared) {
             }
         });
     });
+}
+
+/// Center the window now and again on a short retry schedule, so a cold first map
+/// (where Mutter cascades the window and drops an early move) still ends centered.
+/// Idempotent: once the window sits at the centered position, re-centering is a
+/// no-op move.
+fn center_with_retries(window: &ApplicationWindow) {
+    fn once(window: &ApplicationWindow) {
+        if let Some(xid) = x11_xid(window) {
+            if let Some((dw, dh)) = device_size(window) {
+                crate::x11_window_hints::center_on_primary(xid, dw, dh);
+            }
+        }
+    }
+    once(window);
+    for delay in [16u64, 60, 140, 280, 450] {
+        let w = window.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(delay), move || once(&w));
+    }
 }
 
 /// The XWayland window XID for a realized window, or `None` on the pure-Wayland
@@ -521,6 +536,17 @@ pub fn show(state: &Shared) {
     glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || {
         s.suppress_focus_hide.set(false);
     });
+}
+
+/// Re-assert the popup to the front without resetting its contents. Used by the
+/// tray "Open" path: the GNOME menu grab can swallow the initial `present()`, so
+/// a second present once the grab has released brings the popup up reliably.
+/// Unlike `show`, this preserves the search text and selection (the user may have
+/// started typing), and it is a near no-op when the window is already up front.
+pub fn represent(state: &Shared) {
+    log("represent (tray re-present after menu grab)");
+    state.window.present();
+    request_front(state);
 }
 
 pub fn hide(state: &Shared) {

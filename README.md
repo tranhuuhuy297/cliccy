@@ -17,7 +17,8 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
 - SQLite-backed, capped at 20 unpinned entries (pinned never expire)
 - Top-bar tray icon: left-click to open, right-click for
-  open / clear-history / quit — no dock icon, popup still skips the taskbar
+  open / clear-history / quit. The popup is a normal window (it shows a dock
+  entry while open) so GNOME maps and focuses it reliably every time
 - Single small binary, dark Catppuccin theme
 
 ## Requirements
@@ -122,9 +123,11 @@ On GNOME/Wayland, polling the clipboard either steals focus (`wl-paste`) or
 stutters (`xclip` every tick). Instead, Cliccy listens for XFIXES "selection
 owner changed" events that Mutter raises via its XWayland clipboard bridge, so it
 reads *only when the clipboard actually changes* — no timer, no jitter. The popup
-renders under XWayland (`GDK_BACKEND=x11`) with EWMH utility/skip-taskbar hints
-so GNOME keeps it out of the dock. If X is unavailable it falls back to
-`wl-clipboard` polling (dock icon returns, but it still works).
+renders under XWayland (`GDK_BACKEND=x11`) as a normal keep-above window, which
+GNOME maps and focuses reliably (a utility/skip-taskbar window is treated as an
+auxiliary of a main window the popup doesn't have, so Mutter sometimes never
+surfaces it). The trade-off is a dock entry while the popup is open. If X is
+unavailable it falls back to `wl-clipboard` polling.
 
 ## Non-GNOME desktops
 

@@ -31,7 +31,12 @@ const TRAY_ICON_PNG: &[u8] = include_bytes!("../assets/cliccy-tray-white.png");
 
 /// Commands forwarded from the tray's D-Bus thread to the glib main thread.
 enum TrayCommand {
+    /// Left-click on the icon: show if hidden, hide if shown.
     Toggle,
+    /// The "Open Cliccy" menu item: always show, never hide. A toggle here is
+    /// wrong twice over — the label says "Open", and GTK's `is_active()` can read
+    /// stale-true on the hidden window, making a toggle resolve to "hide".
+    Show,
     Clear,
     Quit,
 }
@@ -75,7 +80,7 @@ impl Tray for CliccyTray {
             StandardItem {
                 label: "Open Cliccy".into(),
                 activate: Box::new(|t: &mut Self| {
-                    let _ = t.tx.send_blocking(TrayCommand::Toggle);
+                    let _ = t.tx.send_blocking(TrayCommand::Show);
                 }),
                 ..Default::default()
             }
@@ -119,6 +124,17 @@ pub fn install(app: &Application, shared: &Shared) {
         while let Ok(cmd) = rx.recv().await {
             match cmd {
                 TrayCommand::Toggle => ui::toggle(&shared),
+                TrayCommand::Show => {
+                    // Show now for responsiveness, then re-present once after the
+                    // GNOME tray-menu grab has released: the first map can be
+                    // swallowed mid-grab, leaving nothing on screen. The second
+                    // present is idempotent when the first already worked.
+                    ui::show(&shared);
+                    let s = shared.clone();
+                    glib::timeout_add_local_once(std::time::Duration::from_millis(160), move || {
+                        ui::represent(&s);
+                    });
+                }
                 TrayCommand::Clear => {
                     if shared.store.clear().is_ok() {
                         ui::refresh(&shared);

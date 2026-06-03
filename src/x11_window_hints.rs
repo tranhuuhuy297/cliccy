@@ -5,8 +5,11 @@
 //! the front, so Cliccy renders under XWayland (`GDK_BACKEND=x11`) and sets the
 //! EWMH properties Mutter honours:
 //!
-//! - `_NET_WM_WINDOW_TYPE_UTILITY` + `SKIP_TASKBAR`/`SKIP_PAGER` keep it out of
-//!   the dock (no dock icon, no reflow "jerk").
+//! - `_NET_WM_WINDOW_TYPE_NORMAL` so Mutter maps and focuses it like any app
+//!   window. A `UTILITY` + `SKIP_TASKBAR` window is treated as an auxiliary of a
+//!   main window the popup doesn't have, so Mutter gives it second-class
+//!   map/focus and it sometimes never surfaces — at the cost of a dock entry
+//!   while the popup is open, a normal window appears reliably every time.
 //! - `_NET_WM_STATE_ABOVE` keeps it on top so a hotkey-spawned popup is visible
 //!   even when another window is focused.
 //! - `_NET_ACTIVE_WINDOW` with pager source indication requests focus, which
@@ -27,33 +30,20 @@ pub fn apply_static_hints(xid: u32) {
         return;
     };
     let atom = |name: &[u8]| atom(&conn, name);
-    let (
-        Some(wm_type),
-        Some(utility),
-        Some(wm_state),
-        Some(skip_taskbar),
-        Some(skip_pager),
-        Some(above),
-    ) = (
+    let (Some(wm_type), Some(normal), Some(wm_state), Some(above)) = (
         atom(b"_NET_WM_WINDOW_TYPE"),
-        atom(b"_NET_WM_WINDOW_TYPE_UTILITY"),
+        atom(b"_NET_WM_WINDOW_TYPE_NORMAL"),
         atom(b"_NET_WM_STATE"),
-        atom(b"_NET_WM_STATE_SKIP_TASKBAR"),
-        atom(b"_NET_WM_STATE_SKIP_PAGER"),
         atom(b"_NET_WM_STATE_ABOVE"),
     ) else {
         return;
     };
 
     let atom_type: u32 = AtomEnum::ATOM.into();
-    let _ = conn.change_property32(PropMode::REPLACE, xid, wm_type, atom_type, &[utility]);
-    let _ = conn.change_property32(
-        PropMode::REPLACE,
-        xid,
-        wm_state,
-        atom_type,
-        &[skip_taskbar, skip_pager, above],
-    );
+    // A normal, taskbar-visible window so Mutter maps + focuses it reliably (see
+    // module docs); keep-above pins it to the top like a launcher.
+    let _ = conn.change_property32(PropMode::REPLACE, xid, wm_type, atom_type, &[normal]);
+    let _ = conn.change_property32(PropMode::REPLACE, xid, wm_state, atom_type, &[above]);
     let _ = conn.flush();
 }
 
