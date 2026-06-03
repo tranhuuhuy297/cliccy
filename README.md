@@ -5,7 +5,8 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
 ## Demo
 
-![Cliccy demo](docs/cliccy-demo.png)
+<img src="docs/cliccy-demo.png" alt="Cliccy demo" width="300">
+
 
 ## Features
 
