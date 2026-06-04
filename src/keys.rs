@@ -96,13 +96,13 @@ fn activate_selected(state: &Shared) {
 fn delete_selected(state: &Shared) {
     if let Some(id) = selected_entry_id(state) {
         let _ = state.store.delete(id);
-        ui::refresh(state);
+        ui::notify_change(state);
     }
 }
 
 fn toggle_pin_selected(state: &Shared) {
     if let Some(id) = selected_entry_id(state) {
         let _ = state.store.toggle_pin(id);
-        ui::refresh(state);
+        ui::notify_change(state);
     }
 }

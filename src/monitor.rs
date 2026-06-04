@@ -8,7 +8,6 @@
 use std::time::Duration;
 
 use gtk::glib;
-use gtk::prelude::WidgetExt;
 
 use crate::app::Shared;
 use crate::clipboard_backend::{self, ClipContent};
@@ -45,9 +44,8 @@ pub fn capture(state: &Shared) {
             let _ = state.store.record_image(&bytes);
         }
     }
-    if state.window.is_visible() {
-        ui::refresh(state);
-    }
+    // Refresh the popup (if showing) and the tray quick picks for the new entry.
+    ui::notify_change(state);
 }
 
 fn install_polling(state: &Shared) {

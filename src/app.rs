@@ -47,6 +47,10 @@ pub struct AppState {
     /// resolves to "hide" within `HIDE_GUARD` of a show is therefore ignored — this
     /// only ever suppresses a too-soon hide, never a show.
     pub last_show: Cell<Option<std::time::Instant>>,
+    /// Sends quick-pick snapshots to the tray-menu thread so the menu's top
+    /// pinned/recent items stay live. Set once the tray is installed; stays `None`
+    /// when no StatusNotifier host is present. See `tray::push_menu`.
+    pub tray_tx: RefCell<Option<async_channel::Sender<Vec<tray::TrayEntry>>>>,
 }
 
 pub type Shared = Rc<AppState>;

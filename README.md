@@ -16,9 +16,10 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 - Fast type-to-search popup with full keyboard control (image thumbnails inline)
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
 - SQLite-backed, capped at 20 unpinned entries (pinned never expire)
-- Top-bar tray icon: left-click to open, right-click for
-  open / clear-history / quit. The popup is a normal window (it shows a dock
-  entry while open) so GNOME maps and focuses it reliably every time
+- Top-bar tray icon: left-click to open, right-click for the menu — which lists
+  your top 3 pinned and top 3 recent entries for one-click copy without opening
+  the popup, plus open / clear-history / quit. The popup is a normal window (it
+  shows a dock entry while open) so GNOME maps and focuses it reliably every time
 - Single small binary, dark Catppuccin theme
 
 ## Requirements

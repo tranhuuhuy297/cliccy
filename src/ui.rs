@@ -182,6 +182,7 @@ pub fn build(app: &Application) -> Shared {
         hold: RefCell::new(None),
         suppress_focus_hide: Cell::new(false),
         last_show: Cell::new(None),
+        tray_tx: RefCell::new(None),
     });
 
     wire_events(&state);
@@ -386,6 +387,16 @@ pub fn refresh(state: &Shared) {
     state.scroller.vadjustment().set_value(0.0);
 }
 
+/// Single chokepoint to call after any history mutation: rebuild the popup list
+/// if it's currently showing (hidden popups re-`refresh` on next `show`), and
+/// always re-push the tray menu's quick picks so they reflect the new state.
+pub fn notify_change(state: &Shared) {
+    if state.window.is_visible() {
+        refresh(state);
+    }
+    crate::tray::push_menu(state);
+}
+
 /// Build the footer hint bar — styled `kbd` chips for each shortcut plus the
 /// brand mark, mirroring the popup design.
 fn build_footer() -> GtkBox {
@@ -448,7 +459,8 @@ fn load_logo() -> Option<gtk::Image> {
     Some(image)
 }
 
-/// Copy an entry back to the clipboard, bump it to the top, and hide.
+/// Copy an entry back to the clipboard, bump it to the top, hide, and refresh the
+/// tray quick picks (the copied row just became newest).
 pub fn copy_entry(state: &Shared, entry: &Entry) {
     let content = match entry.kind {
         Kind::Text => ClipContent::Text(entry.text.clone().unwrap_or_default()),
@@ -470,6 +482,8 @@ pub fn copy_entry(state: &Shared, entry: &Entry) {
         }
     }
     hide(state);
+    // Popup is now hidden, so this only re-pushes the tray menu (no list rebuild).
+    notify_change(state);
 }
 
 /// Ask the WM to focus + raise the popup, then re-send the request a few times

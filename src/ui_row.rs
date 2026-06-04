@@ -163,7 +163,7 @@ fn actions(state: &Shared, entry: &Entry) -> GtkBox {
     let id = entry.id;
     pin.connect_clicked(move |_| {
         let _ = s.store.toggle_pin(id);
-        crate::ui::refresh(&s);
+        crate::ui::notify_change(&s);
     });
 
     let del = Button::new();
@@ -179,7 +179,7 @@ fn actions(state: &Shared, entry: &Entry) -> GtkBox {
     let id = entry.id;
     del.connect_clicked(move |_| {
         let _ = s.store.delete(id);
-        crate::ui::refresh(&s);
+        crate::ui::notify_change(&s);
     });
 
     bar.append(&pin);

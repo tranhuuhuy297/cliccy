@@ -96,6 +96,55 @@ impl Store {
         rows.collect()
     }
 
+    /// Like `list`, but never loads image BLOBs (`image` is always `None`). The
+    /// tray quick-pick menu needs only id/kind/text/pinned to render labels, so
+    /// this avoids deserializing every stored image on each history change.
+    pub fn list_lite(&self) -> rusqlite::Result<Vec<Entry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, kind, content, pinned, copied_at FROM history ORDER BY pinned DESC, copied_at DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let kind = if r.get::<_, String>(1)? == "image" {
+                Kind::Image
+            } else {
+                Kind::Text
+            };
+            Ok(Entry {
+                id: r.get(0)?,
+                kind,
+                text: r.get(2)?,
+                image: None,
+                pinned: r.get::<_, i64>(3)? != 0,
+                copied_at: r.get(4)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// Fetch a single entry by id, including its image data. Used by the tray
+    /// quick-pick copy path, which needs the full content to write to the clipboard.
+    pub fn get(&self, id: i64) -> rusqlite::Result<Option<Entry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, kind, content, data, pinned, copied_at FROM history WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query_map(params![id], |r| {
+            let kind = if r.get::<_, String>(1)? == "image" {
+                Kind::Image
+            } else {
+                Kind::Text
+            };
+            Ok(Entry {
+                id: r.get(0)?,
+                kind,
+                text: r.get(2)?,
+                image: r.get(3)?,
+                pinned: r.get::<_, i64>(4)? != 0,
+                copied_at: r.get(5)?,
+            })
+        })?;
+        rows.next().transpose()
+    }
+
     pub fn toggle_pin(&self, id: i64) -> rusqlite::Result<()> {
         self.conn
             .execute("UPDATE history SET pinned = 1 - pinned WHERE id = ?1", params![id])?;
