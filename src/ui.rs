@@ -380,6 +380,10 @@ pub fn refresh(state: &Shared) {
     if let Some(first) = state.list.row_at_index(0) {
         state.list.select_row(Some(&first));
     }
+    // Selecting row 0 doesn't move the viewport, so a scroll position left over
+    // from a previous show (or pre-filter) would keep the first row off-screen.
+    // Snap the scroller back to the top to match the row-0 selection.
+    state.scroller.vadjustment().set_value(0.0);
 }
 
 /// Build the footer hint bar — styled `kbd` chips for each shortcut plus the
