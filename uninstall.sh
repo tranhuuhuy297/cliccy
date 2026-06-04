@@ -16,7 +16,9 @@ KB_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/cliccy
 SCHEMA="org.gnome.settings-daemon.plugins.media-keys"
 
 echo "==> Stopping the daemon"
-pkill -f "${BIN_DIR}/cliccy daemon" 2>/dev/null || true
+# Match the exact process name so this catches the daemon wherever it runs from
+# (installed binary or a target/debug build), not just the installed path.
+pkill -x cliccy 2>/dev/null || true
 
 echo "==> Removing GNOME hotkey"
 if command -v gsettings >/dev/null; then
