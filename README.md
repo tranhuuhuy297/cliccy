@@ -14,8 +14,9 @@ text & images. Built with **Rust + GTK4**. Works on X11 and Wayland.
 
 - Resident daemon that records what you copy — text **and PNG images**
 - Fast type-to-search popup with full keyboard control (image thumbnails inline)
-- Preview the full text of a clipped entry — `Space` on the selected row or hover
-  it with the pointer opens a side panel with the complete content
+- Preview the full content of a clipped entry — `Space` on the selected row or
+  hover it with the pointer opens a side panel: the complete text, or the full
+  image (scaled to fit, with its dimensions and size) for image rows
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
 - SQLite-backed, capped at 20 unpinned entries (pinned never expire)
 - Top-bar tray icon: left-click to open, right-click for
@@ -96,8 +97,9 @@ Append `-s -- --purge` to also wipe clipboard history. From a checkout:
 | `cliccy uninstall-hotkey`  | Remove the GNOME shortcut                            |
 
 In the popup: type to filter, `↑`/`↓` to move, `Enter`/click to copy & close,
-`Space` to preview the full text of the selected row (long entries are clipped
-to `…` in the list; hovering a row opens the same side panel with the pointer),
+`Space` to preview the full content of the selected row — text (long entries are
+clipped to `…` in the list) or the full image for image rows; hovering a row
+opens the same side panel with the pointer —
 `Alt+1…9` to quick-pick a row, `Ctrl+P` to pin/unpin, `Delete` to remove, `Esc`
 to close (or to dismiss the preview).
 

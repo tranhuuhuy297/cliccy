@@ -1,19 +1,23 @@
-//! Full-text preview for a clipped row, shown the same way for mouse and
+//! Full-content preview for a clipped row, shown the same way for mouse and
 //! keyboard.
 //!
 //! The row list shows a width-clipped, newline-flattened preview, so long or
-//! multi-line entries read as "…". Hovering a row (pointer) or pressing Space on
-//! the selected row pops up a small side panel with the entry's complete text
-//! (scrollable, original line breaks intact). Both paths share one popover slot
-//! in `AppState`, so they never stack and dismiss the same way.
+//! multi-line entries read as "…" and image rows shrink to a tiny thumbnail.
+//! Hovering a row (pointer) or pressing Space on the selected row pops up a small
+//! side panel: text entries show their complete text (scrollable, original line
+//! breaks intact); image entries show the full PNG scaled to fit plus its pixel
+//! dimensions and size. Both paths share one popover slot in `AppState`, so they
+//! never stack and dismiss the same way.
 
 use gtk::prelude::*;
 use gtk::{
-    pango, EventControllerMotion, Label, ListBoxRow, Popover, PositionType, ScrolledWindow,
+    pango, Box as GtkBox, EventControllerMotion, Label, ListBoxRow, Orientation, Popover,
+    PositionType, ScrolledWindow,
 };
 
 use crate::app::Shared;
 use crate::store::{Entry, Kind};
+use crate::ui_row;
 
 /// Below this length a single-line text entry almost always fits the row width
 /// uncut, so a preview would only duplicate what's already visible. Above it (or
@@ -26,10 +30,35 @@ const MIN_PREVIEW_CHARS: usize = 50;
 /// panel only needs to show enough to read. Cap generously and mark truncation.
 const MAX_PREVIEW_CHARS: usize = 20_000;
 
+/// Long edge (px) the previewed image is scaled to fit — a fixed cap so the
+/// floating preview stays bounded rather than showing the image at full size.
+/// Smaller images are shown at native size. The texture is decoded at exactly
+/// this size so a `Picture`'s natural size (its texture's intrinsic size) bounds
+/// the popover; unlike the text path there is no scroller to cap the width.
+const PREVIEW_IMG_MAX: i32 = 560;
+
+/// What a row's side panel should display, or `None` when there's nothing worth
+/// previewing (short single-line text the row already shows in full).
+pub enum Preview {
+    Text(String),
+    /// The stored PNG bytes, rendered scaled-to-fit in the panel.
+    Image(Vec<u8>),
+}
+
+/// Decide what (if anything) to preview for `entry`. Text routes through the
+/// length/newline heuristic; images always preview (the row only shows a tiny
+/// thumbnail, so the full image always earns the panel).
+pub fn previewable(entry: &Entry) -> Option<Preview> {
+    match entry.kind {
+        Kind::Image => entry.image.clone().map(Preview::Image),
+        Kind::Text => previewable_text(entry).map(Preview::Text),
+    }
+}
+
 /// The text to preview for `entry`, or `None` when the row already shows
 /// everything (short single-line text) or it carries no text (images). Newlines
 /// are kept — unlike the flattened row preview, this reads as the original.
-pub fn previewable_text(entry: &Entry) -> Option<String> {
+fn previewable_text(entry: &Entry) -> Option<String> {
     if entry.kind != Kind::Text {
         return None;
     }
@@ -63,13 +92,9 @@ pub fn toggle(state: &Shared) {
     if idx < 0 {
         return;
     }
-    let text = state
-        .current
-        .borrow()
-        .get(idx as usize)
-        .and_then(previewable_text);
-    if let Some(text) = text {
-        show_for_row(state, &row, &text);
+    let preview = state.current.borrow().get(idx as usize).and_then(previewable);
+    if let Some(preview) = preview {
+        show_for_row(state, &row, &preview);
     }
 }
 
@@ -77,7 +102,7 @@ pub fn toggle(state: &Shared) {
 /// keyboard Space behaviour. Skipped for rows that already show everything, so
 /// hovering short entries pops nothing.
 pub fn attach_hover(state: &Shared, row: &ListBoxRow, entry: &Entry) {
-    let Some(text) = previewable_text(entry) else {
+    let Some(preview) = previewable(entry) else {
         return;
     };
     let motion = EventControllerMotion::new();
@@ -89,7 +114,7 @@ pub fn attach_hover(state: &Shared, row: &ListBoxRow, entry: &Entry) {
     let s = state.clone();
     motion.connect_enter(move |_, _, _| {
         if let Some(row) = row_weak.upgrade() {
-            show_for_row(&s, &row, &text);
+            show_for_row(&s, &row, &preview);
         }
     });
     let s = state.clone();
@@ -103,7 +128,7 @@ pub fn attach_hover(state: &Shared, row: &ListBoxRow, entry: &Entry) {
 /// preview is already showing for this very row (a benign re-`enter`, e.g. a
 /// list refresh re-firing under a stationary pointer), it's left as-is rather
 /// than torn down and rebuilt.
-fn show_for_row(state: &Shared, row: &ListBoxRow, text: &str) {
+fn show_for_row(state: &Shared, row: &ListBoxRow, preview: &Preview) {
     let same_row = state
         .preview
         .borrow()
@@ -114,7 +139,7 @@ fn show_for_row(state: &Shared, row: &ListBoxRow, text: &str) {
         return;
     }
     close(state);
-    let pop = build(row, text);
+    let pop = build(row, preview);
     pop.popup();
     *state.preview.borrow_mut() = Some(pop);
 }
@@ -135,18 +160,38 @@ pub fn close(state: &Shared) -> bool {
     }
 }
 
-/// Build the preview popover anchored to `row`, showing `text` whole in a
-/// bounded, scrollable panel. Non-autohide so it doesn't grab focus (which would
-/// trip the window's focus-out auto-hide) — its lifetime is driven entirely by
-/// the hover/keyboard handlers.
-fn build(row: &ListBoxRow, text: &str) -> Popover {
+/// Build the preview popover anchored to `row`, showing `preview`'s content in a
+/// bounded panel. Non-autohide so it doesn't grab focus (which would trip the
+/// window's focus-out auto-hide) — its lifetime is driven entirely by the
+/// hover/keyboard handlers.
+fn build(row: &ListBoxRow, preview: &Preview) -> Popover {
     let pop = Popover::new();
     pop.set_parent(row);
     pop.set_autohide(false);
     pop.set_position(PositionType::Right);
-    pop.set_has_arrow(true);
-    pop.add_css_class("cliccy-preview");
 
+    let child = match preview {
+        Preview::Text(text) => {
+            // Text keeps the framed, arrowed panel.
+            pop.set_has_arrow(true);
+            pop.add_css_class("cliccy-preview");
+            build_text(text)
+        }
+        Preview::Image(bytes) => {
+            // Images show bare: no panel background, border, or arrow — just the
+            // image floating beside the row.
+            pop.set_has_arrow(false);
+            pop.add_css_class("cliccy-preview-img");
+            build_image(bytes)
+        }
+    };
+    pop.set_child(Some(&child));
+    pop
+}
+
+/// The panel body for a text entry: the full text in a bounded, scrollable,
+/// word-wrapping label.
+fn build_text(text: &str) -> gtk::Widget {
     let label = Label::new(Some(text));
     label.set_xalign(0.0);
     label.set_yalign(0.0);
@@ -165,7 +210,41 @@ fn build(row: &ListBoxRow, text: &str) -> Popover {
     scroller.set_max_content_height(320);
     // Horizontal wraps via the label; only the vertical axis ever scrolls.
     scroller.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    scroller.upcast()
+}
 
-    pop.set_child(Some(&scroller));
-    pop
+/// The body for an image entry: just the PNG, scaled to fit `PREVIEW_IMG_MAX`
+/// (native size when smaller) and shown bare (no panel chrome around it).
+fn build_image(bytes: &[u8]) -> gtk::Widget {
+    // Native dimensions drive the target so small images render at 1:1 instead of
+    // being blown up to the cap (which would look soft).
+    let long = png_dimensions(bytes)
+        .map(|(w, h)| w.max(h).max(1) as i32)
+        .unwrap_or(PREVIEW_IMG_MAX);
+    let target = long.min(PREVIEW_IMG_MAX);
+
+    if let Some(tex) = ui_row::preview_texture(bytes, target) {
+        let pic = gtk::Picture::for_paintable(&tex);
+        pic.set_halign(gtk::Align::Center);
+        pic.set_valign(gtk::Align::Center);
+        return pic.upcast();
+    }
+    // Decode failed (non-PNG or corrupt) — show nothing rather than a stray box.
+    GtkBox::new(Orientation::Vertical, 0).upcast()
+}
+
+/// Pixel width/height from a PNG's IHDR header. Clipboard images are always PNG
+/// (see `store::record_image`), so a cheap header read gives native dimensions
+/// without decoding the whole image. A 0-dimension IHDR (corrupt/crafted PNG) is
+/// no usable size and reads as unknown.
+fn png_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() < 24 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
+        return None;
+    }
+    let w = u32::from_be_bytes(bytes[16..20].try_into().ok()?);
+    let h = u32::from_be_bytes(bytes[20..24].try_into().ok()?);
+    if w == 0 || h == 0 {
+        return None;
+    }
+    Some((w, h))
 }

@@ -422,6 +422,25 @@ fn thumbnail(bytes: &[u8]) -> Option<gtk::Picture> {
     Some(picture)
 }
 
+/// Decode `bytes` (PNG) to a texture fitting a `box_px`×`box_px` square with
+/// aspect preserved, cached by content hash. Backs the side-panel image preview
+/// (`ui_preview`); the shared cache means repeated hovers over the same image
+/// row reuse one decode instead of re-rasterising the PNG each time.
+pub fn preview_texture(bytes: &[u8], box_px: i32) -> Option<gdk::Texture> {
+    cached_texture(format!("preview:{box_px}:{}", image_key(bytes)), || {
+        let stream = gtk::gio::MemoryInputStream::from_bytes(&glib::Bytes::from(bytes));
+        let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_stream_at_scale(
+            &stream,
+            box_px,
+            box_px,
+            true,
+            gtk::gio::Cancellable::NONE,
+        )
+        .ok()?;
+        Some(gdk::Texture::for_pixbuf(&pixbuf))
+    })
+}
+
 // ---- relative time ------------------------------------------------------
 
 /// Format a copy timestamp as a compact "time ago" (now / 9s / 3m / 2h / 5d).

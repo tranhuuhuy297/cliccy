@@ -103,6 +103,10 @@ const CSS: &str = "
     border: 1px solid alpha(#6c7086, 0.4); }
 .cliccy-preview-text { color: #cdd6f4; font-size: 12px;
     font-family: \"JetBrainsMono Nerd Font\", monospace; }
+/* Image preview shows bare — no panel background, border, shadow, or padding. */
+.cliccy-preview-img, .cliccy-preview-img > contents, .cliccy-preview-img > arrow {
+    background: none; background-color: transparent;
+    border: none; box-shadow: none; padding: 0; }
 ";
 
 /// Build the popup window plus shared state, wire events, and return it.
