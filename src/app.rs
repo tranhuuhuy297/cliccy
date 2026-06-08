@@ -40,6 +40,10 @@ pub struct AppState {
     /// so the focus-out auto-hide doesn't fire on the brief unfocused moment
     /// while the popup is still being raised.
     pub suppress_focus_hide: Cell<bool>,
+    /// The open full-text preview popover, if any (Space toggles it). Held so it
+    /// can be dismissed on Esc, navigation, refresh, or hide, and unparented from
+    /// its row before that row is removed.
+    pub preview: RefCell<Option<gtk::Popover>>,
     /// When the popup was last shown. A single hotkey press can reach the daemon
     /// as two near-simultaneous `cliccy toggle` processes (key repeat, an impatient
     /// double-press, a tray double-activate); the first shows the popup and the

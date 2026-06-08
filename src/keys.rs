@@ -10,11 +10,24 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 
 use crate::app::Shared;
-use crate::ui;
+use crate::{ui, ui_preview};
 
 pub fn handle(state: &Shared, keyval: gdk::Key, modifier: gdk::ModifierType) -> glib::Propagation {
     use gdk::Key;
+
+    // Space toggles the full-text preview of the selected row (the keyboard
+    // counterpart to the hover preview). Captured before the search entry, so a
+    // bare space never types into the query — Ctrl/Alt+Space fall through.
+    let plain = !modifier.contains(gdk::ModifierType::CONTROL_MASK)
+        && !modifier.contains(gdk::ModifierType::ALT_MASK);
+    if matches!(keyval, Key::space | Key::KP_Space) && plain {
+        ui_preview::toggle(state);
+        return glib::Propagation::Stop;
+    }
+
     match keyval {
+        // Esc dismisses an open preview first; only closes the popup when none.
+        Key::Escape if ui_preview::close(state) => glib::Propagation::Stop,
         Key::Escape => stop(ui::hide(state)),
         Key::Down => stop(move_selection(state, 1)),
         Key::Up => stop(move_selection(state, -1)),
@@ -43,6 +56,9 @@ fn stop(_: ()) -> glib::Propagation {
 }
 
 fn move_selection(state: &Shared, delta: i32) {
+    // A preview anchored to the current row would point at the wrong entry once
+    // selection moves; drop it so the next Space previews the new selection.
+    ui_preview::close(state);
     let count = state.current.borrow().len() as i32;
     if count == 0 {
         return;

@@ -1,7 +1,7 @@
 # Cliccy
 
-A lightweight clipboard history manager for Linux — a Maccy-style popup, built
-with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
+Lightweight Maccy-style clipboard history for Linux — type-to-search popup for
+text & images. Built with **Rust + GTK4**. Works on X11 and Wayland.
 
 ## Demo
 
@@ -14,6 +14,8 @@ with **Rust + GTK4**. Works on X11 and Wayland (tested: Ubuntu 22.04+).
 
 - Resident daemon that records what you copy — text **and PNG images**
 - Fast type-to-search popup with full keyboard control (image thumbnails inline)
+- Preview the full text of a clipped entry — `Space` on the selected row or hover
+  it with the pointer opens a side panel with the complete content
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
 - SQLite-backed, capped at 20 unpinned entries (pinned never expire)
 - Top-bar tray icon: left-click to open, right-click for
@@ -94,8 +96,10 @@ Append `-s -- --purge` to also wipe clipboard history. From a checkout:
 | `cliccy uninstall-hotkey`  | Remove the GNOME shortcut                            |
 
 In the popup: type to filter, `↑`/`↓` to move, `Enter`/click to copy & close,
+`Space` to preview the full text of the selected row (long entries are clipped
+to `…` in the list; hovering a row opens the same side panel with the pointer),
 `Alt+1…9` to quick-pick a row, `Ctrl+P` to pin/unpin, `Delete` to remove, `Esc`
-to close.
+to close (or to dismiss the preview).
 
 ## Change your hotkey
 

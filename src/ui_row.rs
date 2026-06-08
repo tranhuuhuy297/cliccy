@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::app::Shared;
 use crate::clipboard_backend::image_key;
 use crate::store::{Entry, Kind};
+use crate::ui_preview;
 
 // Decoded textures are cached by content so the list rebuild that runs on every
 // show and every search keystroke reuses rasterised glyphs/thumbnails instead of
@@ -64,6 +65,11 @@ pub fn make_row(state: &Shared, entry: &Entry, index: usize) -> ListBoxRow {
         hbox.append(&chip);
     }
     hbox.append(&body(entry));
+
+    // Reveal the full content on hover using the same side panel that Space pops
+    // up, so mouse and keyboard surface long/clipped rows identically. No-op for
+    // rows whose text already fits.
+    ui_preview::attach_hover(state, &row, entry);
 
     let time = Label::new(Some(&time_ago(entry.copied_at)));
     time.add_css_class("cliccy-time");

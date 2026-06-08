@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::app::{AppState, Shared};
 use crate::clipboard_backend::ClipContent;
 use crate::store::{Entry, Kind, Store};
-use crate::{clipboard_backend, config, keys, ui_row};
+use crate::{clipboard_backend, config, keys, ui_preview, ui_row};
 
 /// Catppuccin-Mocha theme. Mirrors the reference popup design and, crucially,
 /// overrides Adwaita's default widget chrome (entry frame, scrollbar, button,
@@ -94,6 +94,15 @@ const CSS: &str = "
     border: 1px solid alpha(#6c7086, 0.22); }
 .cliccy-brand { color: #6c7086;
     font-family: \"JetBrainsMono Nerd Font\", monospace; font-size: 10px; }
+
+/* ---- full-text preview popover (Space) ---- */
+.cliccy-preview > contents { background-color: #313244; color: #cdd6f4;
+    border: 1px solid alpha(#6c7086, 0.4); border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 8px 24px alpha(#11111b, 0.55); }
+.cliccy-preview > arrow { background-color: #313244;
+    border: 1px solid alpha(#6c7086, 0.4); }
+.cliccy-preview-text { color: #cdd6f4; font-size: 12px;
+    font-family: \"JetBrainsMono Nerd Font\", monospace; }
 ";
 
 /// Build the popup window plus shared state, wire events, and return it.
@@ -182,6 +191,7 @@ pub fn build(app: &Application) -> Shared {
         hold: RefCell::new(None),
         suppress_focus_hide: Cell::new(false),
         last_show: Cell::new(None),
+        preview: RefCell::new(None),
     });
 
     wire_events(&state);
@@ -352,6 +362,8 @@ fn device_size(window: &ApplicationWindow) -> Option<(u32, u32)> {
 
 /// Rebuild the visible list from the database, applying the current search filter.
 pub fn refresh(state: &Shared) {
+    // Drop any open preview before the rows it's parented to are torn down.
+    ui_preview::close(state);
     let query = state.search.text().to_lowercase();
     let entries: Vec<Entry> = state
         .store
@@ -392,8 +404,9 @@ fn build_footer() -> GtkBox {
     let foot = GtkBox::new(Orientation::Horizontal, 14);
     foot.add_css_class("cliccy-foot");
 
-    let hints: [(&[&str], &str); 5] = [
+    let hints: [(&[&str], &str); 6] = [
         (&["↵"], "copy"),
+        (&["Space"], "preview"),
         (&["Alt", "1–9"], "pick"),
         (&["Ctrl", "P"], "pin"),
         (&["Del"], "remove"),
@@ -554,6 +567,7 @@ pub fn represent(state: &Shared) {
 }
 
 pub fn hide(state: &Shared) {
+    ui_preview::close(state);
     state.window.set_visible(false);
 }
 
