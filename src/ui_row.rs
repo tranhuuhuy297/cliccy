@@ -5,16 +5,50 @@
 
 use gtk::prelude::*;
 use gtk::{cairo, gdk, glib, Box as GtkBox, Button, DrawingArea, Label, ListBoxRow, Orientation};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::app::Shared;
+use crate::clipboard_backend::image_key;
 use crate::store::{Entry, Kind};
+
+// Decoded textures are cached by content so the list rebuild that runs on every
+// show and every search keystroke reuses rasterised glyphs/thumbnails instead of
+// re-parsing the same SVG or re-decoding the same PNG each time. Rasterising via
+// gdk-pixbuf (librsvg for icons, the PNG loader for images) is the dominant cost
+// of a refresh; the glyph set is tiny and recurs constantly, so the cache turns
+// repeat refreshes near-free. Single-threaded GTK, so thread-local is enough.
+thread_local! {
+    static TEXTURE_CACHE: RefCell<HashMap<String, gdk::Texture>> = RefCell::new(HashMap::new());
+}
+
+/// Soft ceiling on cached textures. The live working set is tiny (a handful of
+/// glyphs plus at most ~MAX_UNPINNED+pins thumbnails), so this only ever trips
+/// after pathological churn over a long-running daemon — at which point a full
+/// clear bounds memory and the next refresh re-decodes lazily.
+const TEXTURE_CACHE_CAP: usize = 512;
+
+/// Look up a decoded texture by `key`, or decode it via `build` and cache it.
+fn cached_texture(key: String, build: impl FnOnce() -> Option<gdk::Texture>) -> Option<gdk::Texture> {
+    if let Some(tex) = TEXTURE_CACHE.with(|c| c.borrow().get(&key).cloned()) {
+        return Some(tex);
+    }
+    let tex = build()?;
+    TEXTURE_CACHE.with(|c| {
+        let mut cache = c.borrow_mut();
+        if cache.len() >= TEXTURE_CACHE_CAP {
+            cache.clear();
+        }
+        cache.insert(key, tex.clone());
+    });
+    Some(tex)
+}
 
 const PREVIEW_CHARS: usize = 120;
 
 /// Catppuccin tokens baked into the inline SVG glyphs (pixbuf can't honour
 /// `currentColor`, so each icon carries its own stroke/fill colour).
-const SUBTEXT: &str = "#a6adc8";
 const OVERLAY: &str = "#6c7086";
 const MAUVE: &str = "#cba6f7";
 
@@ -26,7 +60,9 @@ pub fn make_row(state: &Shared, entry: &Entry, index: usize) -> ListBoxRow {
     hbox.add_css_class("cliccy-row");
 
     hbox.append(&number_chip(index));
-    hbox.append(&leading(entry));
+    if let Some(chip) = leading(entry) {
+        hbox.append(&chip);
+    }
     hbox.append(&body(entry));
 
     let time = Label::new(Some(&time_ago(entry.copied_at)));
@@ -56,12 +92,15 @@ fn number_chip(index: usize) -> Label {
     num
 }
 
-/// The leading visual for a row: an image thumbnail, a colour swatch, or a
-/// type-glyph chip inferred from the text.
-fn leading(entry: &Entry) -> GtkBox {
+/// The leading chip for a row, or `None` when there's nothing to show on the
+/// left. Images get a thumbnail; colour literals get a cheap Cairo-drawn swatch.
+/// Other text shows no leading chip: the per-type glyph icons were dropped
+/// because each meant an SVG rasterise per row (the cold-start cost), and the
+/// content's kind is already clear from the text itself.
+fn leading(entry: &Entry) -> Option<GtkBox> {
     let chip = GtkBox::new(Orientation::Horizontal, 0);
     chip.set_valign(gtk::Align::Center);
-    // Explicitly non-expanding so the chip keeps its 26px box in the row even
+    // Explicitly non-expanding so the chip keeps its fixed box in the row even
     // though its child expands to fill (which would otherwise propagate up).
     chip.set_hexpand(false);
 
@@ -74,23 +113,17 @@ fn leading(entry: &Entry) -> GtkBox {
             }
         }
         Kind::Text => {
-            let text = entry.text.as_deref().unwrap_or_default();
-            if let Some(rgba) = as_color(text) {
-                chip.add_css_class("cliccy-kind");
-                chip.add_css_class("color-chip");
-                let sw = swatch(rgba);
-                center_in_chip(&sw);
-                chip.append(&sw);
-            } else {
-                chip.add_css_class("cliccy-kind");
-                if let Some(img) = stroke_icon(glyph_for(text), SUBTEXT, 15) {
-                    center_in_chip(&img);
-                    chip.append(&img);
-                }
-            }
+            // Only colour literals keep a leading chip (the swatch); plain text
+            // has none.
+            let rgba = as_color(entry.text.as_deref().unwrap_or_default())?;
+            chip.add_css_class("cliccy-kind");
+            chip.add_css_class("color-chip");
+            let sw = swatch(rgba);
+            center_in_chip(&sw);
+            chip.append(&sw);
         }
     }
-    chip
+    Some(chip)
 }
 
 /// Make a chip's child fill the chip box and sit dead-centre. The child expands
@@ -297,17 +330,21 @@ fn svg(path: &str, fill: &str, stroke: &str) -> String {
 const ICON_OVERSAMPLE: i32 = 4;
 
 fn render_svg(markup: &str, px: i32) -> Option<gtk::Image> {
-    let bytes = glib::Bytes::from(markup.as_bytes());
-    let stream = gtk::gio::MemoryInputStream::from_bytes(&bytes);
-    let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_stream_at_scale(
-        &stream,
-        px * ICON_OVERSAMPLE,
-        px * ICON_OVERSAMPLE,
-        true,
-        gtk::gio::Cancellable::NONE,
-    )
-    .ok()?;
-    let texture = gdk::Texture::for_pixbuf(&pixbuf);
+    // Same markup + size always rasterises to the same texture, so cache it: the
+    // handful of distinct glyphs recur on every row of every refresh.
+    let texture = cached_texture(format!("svg:{px}:{markup}"), || {
+        let bytes = glib::Bytes::from(markup.as_bytes());
+        let stream = gtk::gio::MemoryInputStream::from_bytes(&bytes);
+        let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_stream_at_scale(
+            &stream,
+            px * ICON_OVERSAMPLE,
+            px * ICON_OVERSAMPLE,
+            true,
+            gtk::gio::Cancellable::NONE,
+        )
+        .ok()?;
+        Some(gdk::Texture::for_pixbuf(&pixbuf))
+    })?;
     let image = gtk::Image::from_paintable(Some(&texture));
     image.set_pixel_size(px);
     // Centre at the intended size so the chip box never stretches it.
@@ -358,18 +395,22 @@ const THUMB_H: i32 = 34;
 const THUMB_SCALE: i32 = 2;
 
 fn thumbnail(bytes: &[u8]) -> Option<gtk::Picture> {
-    let stream = gtk::gio::MemoryInputStream::from_bytes(&glib::Bytes::from(bytes));
-    let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_stream_at_scale(
-        &stream,
-        THUMB_W * THUMB_SCALE,
-        THUMB_H * THUMB_SCALE,
-        true,
-        gtk::gio::Cancellable::NONE,
-    )
-    .ok()?;
-    let texture = gdk::Texture::for_pixbuf(&pixbuf);
+    // Key by the image's content hash so the same picture isn't re-decoded on
+    // every refresh while the popup is open or filtered.
+    let texture = cached_texture(format!("thumb:{}", image_key(bytes)), || {
+        let stream = gtk::gio::MemoryInputStream::from_bytes(&glib::Bytes::from(bytes));
+        let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_stream_at_scale(
+            &stream,
+            THUMB_W * THUMB_SCALE,
+            THUMB_H * THUMB_SCALE,
+            true,
+            gtk::gio::Cancellable::NONE,
+        )
+        .ok()?;
+        Some(gdk::Texture::for_pixbuf(&pixbuf))
+    })?;
     let picture = gtk::Picture::for_paintable(&texture);
-    picture.set_size_request(pixbuf.width() / THUMB_SCALE, pixbuf.height() / THUMB_SCALE);
+    picture.set_size_request(texture.width() / THUMB_SCALE, texture.height() / THUMB_SCALE);
     picture.set_halign(gtk::Align::Center);
     picture.set_valign(gtk::Align::Center);
     Some(picture)

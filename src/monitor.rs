@@ -7,8 +7,8 @@
 
 use std::time::Duration;
 
-use gtk::glib;
 use gtk::prelude::WidgetExt;
+use gtk::{gio, glib};
 
 use crate::app::Shared;
 use crate::clipboard_backend::{self, ClipContent};
@@ -27,27 +27,38 @@ pub fn install(state: &Shared) {
 
 /// Read the current clipboard and store it if it's new. Shared by the XFIXES
 /// watcher and the polling fallback.
+///
+/// The `xclip` / `wl-paste` read blocks on a subprocess. Running it inline on the
+/// GTK main thread stalls everything else that thread serves — including the
+/// `cliccy toggle` forward that shows the popup — so a copy immediately followed
+/// by the hotkey (a common flow) could delay the popup until the read finished.
+/// Offload the read to a worker thread and resume on the main thread to touch the
+/// single-threaded store and UI, keeping the popup responsive during a capture.
 pub fn capture(state: &Shared) {
-    let Some(content) = state.backend.read() else {
-        return;
-    };
-    let key = clipboard_backend::dedup_key(&content);
-    if state.last_seen.borrow().as_deref() == Some(key.as_str()) {
-        return;
-    }
-    *state.last_seen.borrow_mut() = Some(key);
+    let backend = state.backend;
+    let state = state.clone();
+    glib::spawn_future_local(async move {
+        let Ok(Some(content)) = gio::spawn_blocking(move || backend.read()).await else {
+            return;
+        };
+        let key = clipboard_backend::dedup_key(&content);
+        if state.last_seen.borrow().as_deref() == Some(key.as_str()) {
+            return;
+        }
+        *state.last_seen.borrow_mut() = Some(key);
 
-    match content {
-        ClipContent::Text(t) => {
-            let _ = state.store.record_text(&t);
+        match content {
+            ClipContent::Text(t) => {
+                let _ = state.store.record_text(&t);
+            }
+            ClipContent::Image(bytes) => {
+                let _ = state.store.record_image(&bytes);
+            }
         }
-        ClipContent::Image(bytes) => {
-            let _ = state.store.record_image(&bytes);
+        if state.window.is_visible() {
+            ui::refresh(&state);
         }
-    }
-    if state.window.is_visible() {
-        ui::refresh(state);
-    }
+    });
 }
 
 fn install_polling(state: &Shared) {
