@@ -10,6 +10,7 @@ set -euo pipefail
 
 BIN_DIR="${HOME}/.local/bin"
 AUTOSTART_DIR="${HOME}/.config/autostart"
+APPLICATIONS_DIR="${HOME}/.local/share/applications"
 ICON_DIR="${HOME}/.local/share/icons/hicolor/scalable/apps"
 DATA_DIR="${HOME}/.local/share/cliccy"
 KB_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/cliccy/"
@@ -34,8 +35,10 @@ fi
 echo "==> Removing files"
 rm -fv "${BIN_DIR}/cliccy" \
        "${AUTOSTART_DIR}/cliccy.desktop" \
+       "${APPLICATIONS_DIR}/com.cliccy.Cliccy.desktop" \
        "${ICON_DIR}/com.cliccy.Cliccy.svg" 2>/dev/null || true
 gtk-update-icon-cache -qtf "${HOME}/.local/share/icons/hicolor" 2>/dev/null || true
+update-desktop-database -q "${APPLICATIONS_DIR}" 2>/dev/null || true
 
 if [ "${1:-}" = "--purge" ]; then
     echo "==> Purging clipboard history (${DATA_DIR})"

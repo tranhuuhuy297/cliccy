@@ -12,6 +12,7 @@ REPO_SLUG="tranhuuhuy297/cliccy"
 REPO_URL="https://github.com/${REPO_SLUG}.git"
 BIN_DIR="${HOME}/.local/bin"
 AUTOSTART_DIR="${HOME}/.config/autostart"
+APPLICATIONS_DIR="${HOME}/.local/share/applications"
 ICON_DIR="${HOME}/.local/share/icons/hicolor/scalable/apps"
 HOTKEY="${1:-<Control><Alt>v}"
 FROM_SOURCE="${CLICCY_FROM_SOURCE:-}"
@@ -154,6 +155,30 @@ Icon=com.cliccy.Cliccy
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
+
+# Application desktop entry. GNOME maps an open window to its dock icon by
+# matching the window's app_id (com.cliccy.Cliccy) to a desktop file of the SAME
+# basename in an applications dir — the autostart entry above (basename cliccy,
+# and in autostart/ which GNOME ignores for this) can't supply it. Without this
+# file the popup gets a generic fallback icon in the dock on Wayland. The basename
+# MUST equal the app_id, Icon points at the installed logo, and StartupWMClass
+# gives X11 sessions the same match via WM_CLASS.
+echo "==> Writing application launcher entry"
+mkdir -p "${APPLICATIONS_DIR}"
+cat > "${APPLICATIONS_DIR}/com.cliccy.Cliccy.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Cliccy
+Comment=Clipboard history manager
+Exec=${BIN_DIR}/cliccy toggle
+Icon=com.cliccy.Cliccy
+StartupWMClass=com.cliccy.Cliccy
+Terminal=false
+Categories=Utility;
+Keywords=clipboard;history;paste;snippet;
+EOF
+# Refresh the desktop database so GNOME picks up the new entry immediately (best-effort).
+update-desktop-database -q "${APPLICATIONS_DIR}" 2>/dev/null || true
 
 echo "==> Registering global hotkey (${HOTKEY})"
 "${BIN_DIR}/cliccy" install-hotkey "${HOTKEY}" || \
