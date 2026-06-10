@@ -13,6 +13,7 @@ mod app;
 mod clipboard_backend;
 mod config;
 mod hotkey;
+mod icon_cache;
 mod keys;
 mod monitor;
 mod store;
@@ -44,6 +45,17 @@ fn main() -> ExitCode {
         "uninstall-hotkey" => hotkey::uninstall_hotkey(),
         // GTK-driven verbs: the first becomes the daemon, the rest forward to it.
         "daemon" | "toggle" | "show" | "hide" => {
+            // GTK derives the window's identity from the program name: the X11
+            // WM_CLASS and the Wayland app_id both come from prgname, which would
+            // otherwise default to argv[0]'s basename ("cliccy"). GNOME maps a
+            // window to its dock/Alt-Tab icon by matching that identity to a
+            // desktop file of the same name; our entry is com.cliccy.Cliccy
+            // (.desktop + StartupWMClass + installed icon all use the app id), so
+            // a bare "cliccy" identity misses it and the dock shows the generic
+            // fallback icon. Pin prgname to the app id here, before GTK opens the
+            // display, so the match succeeds. Set before Application::run, which
+            // only auto-assigns prgname when it is still unset.
+            glib::set_prgname(Some(config::APP_ID));
             // Render under XWayland so the popup can be marked skip-taskbar and
             // stay out of the GNOME dock. Falls back to Wayland if X is absent.
             if std::env::var_os("GDK_BACKEND").is_none() {

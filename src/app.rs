@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::clipboard_backend::Backend;
 use crate::store::{Entry, Store};
-use crate::{config, monitor, tray, ui};
+use crate::{config, icon_cache, monitor, tray, ui};
 
 /// Shared, single-threaded application state passed into every GTK closure.
 pub struct AppState {
@@ -68,6 +68,9 @@ pub fn run() -> glib::ExitCode {
     let startup_state = state.clone();
     app.connect_startup(move |app| {
         let shared = ui::build(app);
+        // The display is open now; re-assert the installed icon so the dock and
+        // Alt-Tab resolve our logo even if an external cache rebuild stranded it.
+        icon_cache::ensure_resolvable();
         monitor::install(&shared);
         // Persistent top-bar tray icon (StatusNotifierItem); daemon-only since
         // this closure runs solely in the primary instance.
