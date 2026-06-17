@@ -40,7 +40,32 @@ impl Store {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         let conn = Connection::open(path)?;
         migrate(&conn)?;
-        Ok(Self { conn })
+        let store = Self { conn };
+        store.enable_incremental_vacuum()?;
+        Ok(store)
+    }
+
+    /// Make SQLite hand freed pages back to the OS as rows are deleted.
+    ///
+    /// By default a deleted row's pages stay in the file on a freelist, so the
+    /// history file grows to its high-water mark — dominated by large image
+    /// blobs that the cap trims away — and never shrinks (commonly tens of MB
+    /// for a handful of live rows). INCREMENTAL auto-vacuum lets each trim
+    /// reclaim those pages via `incremental_vacuum`. Switching mode only takes
+    /// effect after a full VACUUM, which also clears the backlog already on the
+    /// freelist, healing an oversized file in place on the next launch.
+    fn enable_incremental_vacuum(&self) -> rusqlite::Result<()> {
+        let mode: i64 = self.conn.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?;
+        if mode == 2 {
+            self.reclaim()
+        } else {
+            self.conn.execute_batch("PRAGMA auto_vacuum=INCREMENTAL; VACUUM;")
+        }
+    }
+
+    /// Return any freed pages from the file to the OS (no-op when none are free).
+    fn reclaim(&self) -> rusqlite::Result<()> {
+        self.conn.execute_batch("PRAGMA incremental_vacuum;")
     }
 
     /// Record copied text. Empty/whitespace-only content is ignored.
@@ -111,7 +136,7 @@ impl Store {
     /// Remove all unpinned entries.
     pub fn clear(&self) -> rusqlite::Result<()> {
         self.conn.execute("DELETE FROM history WHERE pinned = 0", [])?;
-        Ok(())
+        self.reclaim()
     }
 
     /// Drop the oldest unpinned rows beyond the configured cap.
@@ -122,7 +147,7 @@ impl Store {
             )",
             params![MAX_UNPINNED as i64],
         )?;
-        Ok(())
+        self.reclaim()
     }
 }
 

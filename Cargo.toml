@@ -43,3 +43,9 @@ tokio = { version = "1", default-features = false, features = ["rt"] }
 opt-level = "z"
 lto = true
 strip = true
+# One codegen unit lets LTO optimise across the whole crate graph (smaller, tighter
+# code) at the cost of slower release builds. `panic = "abort"` drops the unwinding
+# tables and landing pads — a clipboard daemon has nothing to catch_unwind, so an
+# abort-on-panic is the right behaviour and shaves the binary further.
+codegen-units = 1
+panic = "abort"

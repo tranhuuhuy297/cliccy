@@ -61,6 +61,15 @@ fn main() -> ExitCode {
             if std::env::var_os("GDK_BACKEND").is_none() {
                 std::env::set_var("GDK_BACKEND", "x11,wayland");
             }
+            // Draw with GSK's Cairo renderer instead of the GL one. On a headless
+            // GPU this avoids spinning up Mesa's llvmpipe software-GL stack (which
+            // pulls in libLLVM and holds tens of MB of JIT/render buffers resident)
+            // for what is a small, mostly-static popup — cutting the daemon's RSS
+            // and thread count with no visible difference. Honour an explicit
+            // override so users on real GPUs can opt back into GL.
+            if std::env::var_os("GSK_RENDERER").is_none() {
+                std::env::set_var("GSK_RENDERER", "cairo");
+            }
             run_gtk()
         }
         other => {
