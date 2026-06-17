@@ -293,8 +293,8 @@ fn wire_events(state: &Shared) {
         center_with_retries(w);
     });
 
-    // Auto-hide when focus genuinely leaves (click elsewhere), like
-    // Maccy/Spotlight — but never hide mid-show. The hide is armed *by focus*,
+    // Auto-hide when focus genuinely leaves (click elsewhere), like a
+    // Spotlight-style launcher — but never hide mid-show. The hide is armed *by focus*,
     // not by a timer: `suppress_focus_hide` is set in `show` and cleared the
     // first time the popup actually gains focus. So a popup the WM opens unfocused
     // (focus-steal prevention often ignores our activate request when the open

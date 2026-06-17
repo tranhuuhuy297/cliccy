@@ -1,4 +1,4 @@
-//! Cliccy — a Maccy-style clipboard history manager for Linux (GTK4).
+//! Cliccy — a clipboard history manager for Linux (GTK4).
 //!
 //! Subcommands:
 //!   cliccy [daemon]          run the resident clipboard monitor + popup (default)

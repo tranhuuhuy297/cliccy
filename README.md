@@ -1,6 +1,6 @@
 # Cliccy
 
-Lightweight Maccy-style clipboard history for Linux — type-to-search popup for
+Lightweight clipboard history for Linux — type-to-search popup for
 text & images. Built with **Rust + GTK4**. Works on X11 and Wayland.
 
 ## Demo

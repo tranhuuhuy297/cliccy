@@ -2,13 +2,13 @@
 name = "cliccy"
 version = "0.4.4"
 edition = "2021"
-description = "A clipboard history manager for Linux — Maccy-style, built with GTK4."
+description = "A clipboard history manager for Linux, built with GTK4."
 license = "MIT"
 authors = ["tranhuuhuy297 <tranhuuhuy297@gmail.com>"]
 repository = "https://github.com/tranhuuhuy297/cliccy"
 homepage = "https://github.com/tranhuuhuy297/cliccy"
 readme = "README.md"
-keywords = ["clipboard", "gtk4", "wayland", "maccy", "linux"]
+keywords = ["clipboard", "gtk4", "wayland", "linux"]
 categories = ["command-line-utilities", "gui"]
 exclude = ["target", "*.gif", "*.png", "*.mp4"]
 
