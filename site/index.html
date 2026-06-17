@@ -30,7 +30,7 @@
         </svg>
       </span>
       <span class="brand-name">Cliccy</span>
-      <span class="brand-badge">v0.4.2</span>
+      <span class="brand-badge" id="version-badge">v0.4.5</span>
     </a>
 
     <div class="header-actions">
@@ -209,6 +209,18 @@
   </footer>
 
   <script>
+    // Keep the header badge in sync with the latest published release so it never
+    // goes stale between version bumps. The static value above is the fallback if
+    // the API call is rate-limited or offline.
+    fetch("https://api.github.com/repos/tranhuuhuy297/cliccy/releases/latest")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && data.tag_name) {
+          document.getElementById("version-badge").textContent = data.tag_name;
+        }
+      })
+      .catch(function () {});
+
     document.querySelectorAll(".copy-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         navigator.clipboard.writeText(btn.dataset.copy).then(function () {
