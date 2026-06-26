@@ -196,6 +196,7 @@ pub fn build(app: &Application) -> Shared {
         suppress_focus_hide: Cell::new(false),
         last_show: Cell::new(None),
         preview: RefCell::new(None),
+        paste_terminal: Cell::new(false),
     });
 
     wire_events(&state);
@@ -487,6 +488,23 @@ pub fn copy_entry(state: &Shared, entry: &Entry) {
         }
     }
     hide(state);
+    paste_at_cursor(state.paste_terminal.get());
+}
+
+/// Fire the paste chord at whatever has focus, a beat after the popup hides.
+/// When the popup closes GNOME returns focus to the previously-focused window on
+/// its own, so the short delay lets that settle before `ydotool` injects the
+/// chord, which pastes the clipboard cliccy just set. `is_terminal` (captured in
+/// `show`) picks `Ctrl+Shift+V` vs `Ctrl+V`. Works for text and images alike,
+/// reaches Wayland apps (the X11 paths can't), and no-ops (leaving the entry on
+/// the clipboard for a manual paste) when `ydotool` is unavailable.
+fn paste_at_cursor(is_terminal: bool) {
+    log(&format!("paste: chord at cursor via ydotool (terminal={is_terminal})"));
+    // ~150ms so the popup's unmap and the focus-return to the previous window
+    // both settle before the chord fires.
+    glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+        crate::x11_paste::send_paste(is_terminal);
+    });
 }
 
 /// Ask the WM to focus + raise the popup, then re-send the request a few times
@@ -525,6 +543,10 @@ fn log(msg: &str) {
 }
 
 pub fn show(state: &Shared) {
+    // Note whether the window we're about to steal focus from is a terminal, so
+    // a later paste uses the right chord. Read now — once the popup maps, *it*
+    // becomes the active window.
+    state.paste_terminal.set(crate::x11_paste::active_is_terminal());
     // Suppress focus-out auto-hide until the popup actually gains focus. The WM
     // emits a transient active→inactive flicker while raising the popup, and the
     // tray-menu grab releases focus on an unpredictable delay; suppressing until

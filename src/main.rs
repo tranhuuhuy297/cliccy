@@ -22,6 +22,7 @@ mod ui;
 mod ui_preview;
 mod ui_row;
 mod x11_clipboard_watch;
+mod x11_paste;
 mod x11_window_hints;
 
 use gtk::glib;

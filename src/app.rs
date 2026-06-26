@@ -51,6 +51,10 @@ pub struct AppState {
     /// resolves to "hide" within `HIDE_GUARD` of a show is therefore ignored — this
     /// only ever suppresses a too-soon hide, never a show.
     pub last_show: Cell<Option<std::time::Instant>>,
+    /// Whether the window focused just before the popup opened is a terminal,
+    /// captured in `show()`. Decides the paste chord: terminals paste with
+    /// `Ctrl+Shift+V`, everything else with `Ctrl+V`.
+    pub paste_terminal: Cell<bool>,
 }
 
 pub type Shared = Rc<AppState>;
