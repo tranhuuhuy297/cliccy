@@ -327,17 +327,32 @@ fn wire_events(state: &Shared) {
 /// Idempotent: once the window sits at the centered position, re-centering is a
 /// no-op move.
 fn center_with_retries(window: &ApplicationWindow) {
-    fn once(window: &ApplicationWindow) {
-        if let Some(xid) = x11_xid(window) {
-            if let Some((dw, dh)) = device_size(window) {
-                crate::x11_window_hints::center_on_primary(xid, dw, dh);
-            }
+    // Returns true once the window is already centered, so scheduled retries can
+    // stop: re-centering an already-placed popup can visibly nudge it after it's
+    // on screen. The retry schedule stays as a fallback for the cold first map.
+    fn once(window: &ApplicationWindow) -> bool {
+        match (x11_xid(window), device_size(window)) {
+            (Some(xid), Some((dw, dh))) => crate::x11_window_hints::center_on_primary(xid, dw, dh),
+            // No XID (pure Wayland) or no size yet: nothing to center, treat as
+            // settled so we don't spin the schedule pointlessly.
+            _ => true,
         }
     }
-    once(window);
+    if once(window) {
+        return;
+    }
+    let settled = std::rc::Rc::new(std::cell::Cell::new(false));
     for delay in [16u64, 60, 140, 280, 450] {
         let w = window.clone();
-        glib::timeout_add_local_once(std::time::Duration::from_millis(delay), move || once(&w));
+        let settled = settled.clone();
+        glib::timeout_add_local_once(std::time::Duration::from_millis(delay), move || {
+            if settled.get() {
+                return;
+            }
+            if once(&w) {
+                settled.set(true);
+            }
+        });
     }
 }
 
@@ -605,25 +620,39 @@ pub fn hide(state: &Shared) {
 const HIDE_GUARD: std::time::Duration = std::time::Duration::from_millis(350);
 
 pub fn toggle(state: &Shared) {
-    // Hide only when the popup is genuinely up-front *and* focused. A popup the WM
-    // opened behind the active window (focus-steal prevention, common from the
-    // tray-menu grab) reports `is_visible() == true` yet the user never saw it;
-    // treating that as "shown" made the next hotkey/Open press hide it, so nothing
-    // appeared. When visible-but-not-active, re-`show()` instead — that re-raises
-    // and re-focuses it, pulling the stuck popup to the front.
     let (vis, act) = (state.window.is_visible(), state.window.is_active());
     let since = state.last_show.get().map(|t| t.elapsed().as_millis());
-    if vis && act {
-        // Suppress a hide that lands right after a show (a double-fire) — it would
-        // otherwise blank the popup the user just asked for. Never blocks a show.
-        if state.last_show.get().is_some_and(|t| t.elapsed() < HIDE_GUARD) {
-            log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> SKIP hide (guard)"));
-            return;
-        }
-        log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> hide"));
-        hide(state);
-    } else {
+    // Settled = on screen past the show-transition window. Once settled, a visible
+    // popup is one the user is looking at, so a hotkey press always hides it —
+    // even if the WM reports it inactive (on XWayland, focus can drift off the
+    // popup while it's plainly still on screen, which previously made toggle
+    // re-`show()` instead of closing: "press again to close", and slow because a
+    // re-show reruns the center/focus retries).
+    let settled = state
+        .last_show
+        .get()
+        .is_none_or(|t| t.elapsed() >= HIDE_GUARD);
+
+    if !vis {
         log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> show"));
+        show(state);
+        return;
+    }
+    if settled {
+        log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> hide (settled)"));
+        hide(state);
+        return;
+    }
+    // Visible but still within the show-transition window. Keep the race guards:
+    // an active popup this soon after a show is a double-fire (a second racing
+    // `cliccy toggle`) that would blank what the user just asked for — ignore it.
+    // An inactive one this soon may be a popup the WM parked behind the active
+    // window (focus-steal prevention, common from the tray-menu grab) — re-`show`
+    // to pull it forward rather than hide something never seen.
+    if act {
+        log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> SKIP hide (guard)"));
+    } else {
+        log(&format!("toggle: vis={vis} act={act} since_show={since:?}ms -> re-show (stuck behind)"));
         show(state);
     }
 }

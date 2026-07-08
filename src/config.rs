@@ -21,3 +21,15 @@ pub fn db_path() -> PathBuf {
     let _ = std::fs::create_dir_all(&dir);
     dir.join("history.db")
 }
+
+/// Path to the daemon's control socket. Lives in `$XDG_RUNTIME_DIR` (a tmpfs the
+/// session manager cleans up on logout) so a stale socket never outlives the
+/// daemon across reboots. Falls back to the data dir when the runtime dir is
+/// unset (e.g. a non-session shell), where a leftover socket file is harmless —
+/// `bind` unlinks it first.
+pub fn socket_path() -> PathBuf {
+    match std::env::var_os("XDG_RUNTIME_DIR") {
+        Some(dir) => PathBuf::from(dir).join("cliccy.sock"),
+        None => data_dir().join("cliccy.sock"),
+    }
+}

@@ -14,6 +14,7 @@ mod clipboard_backend;
 mod config;
 mod hotkey;
 mod icon_cache;
+mod ipc;
 mod keys;
 mod monitor;
 mod store;
@@ -44,6 +45,14 @@ fn main() -> ExitCode {
         "clear" => clear_history(),
         "install-hotkey" => hotkey::install_hotkey(args.get(2).map(String::as_str)),
         "uninstall-hotkey" => hotkey::uninstall_hotkey(),
+        // Popup-control verbs from the hotkey (or CLI). Fast path: hand the verb
+        // to the resident daemon over its control socket and exit — no GTK, no
+        // D-Bus, so the process GNOME spawns for the keybinding does almost
+        // nothing. This is what makes Ctrl+Alt+V feel instant. Only when no
+        // daemon answers (socket absent) do we fall through to the GTK path,
+        // where this invocation either becomes the daemon or forwards via
+        // GApplication as before.
+        "toggle" | "show" | "hide" if ipc::try_forward(verb) => ExitCode::SUCCESS,
         // GTK-driven verbs: the first becomes the daemon, the rest forward to it.
         "daemon" | "toggle" | "show" | "hide" => {
             // GTK derives the window's identity from the program name: the X11
