@@ -88,9 +88,14 @@ pub fn activate(xid: u32) {
 ///
 /// Calling this both before map (via realize) and after (deferred from map) makes
 /// it center with no jump when the hint wins, and reliably centers otherwise.
-pub fn center_on_primary(xid: u32, win_w: u32, win_h: u32) {
+///
+/// Returns `true` once the window already sits at the target position (within a
+/// pixel of rounding), so the caller's retry schedule can stop re-centering an
+/// already-placed popup — a late re-center can visibly nudge it after it is on
+/// screen. `false` while it is still off-target or the geometry can't be read.
+pub fn center_on_primary(xid: u32, win_w: u32, win_h: u32) -> bool {
     let Ok((conn, screen_num)) = x11rb::connect(None) else {
-        return;
+        return false;
     };
     let screen = &conn.setup().roots[screen_num];
     let root = screen.root;
@@ -106,6 +111,15 @@ pub fn center_on_primary(xid: u32, win_w: u32, win_h: u32) {
 
     let x = mx + (mw - win_w as i32) / 2;
     let y = my + (mh - win_h as i32) / 2;
+
+    // If the window is already centered, this call has nothing to do — report
+    // settled so the retry loop stops. Geometry is relative to the parent; on
+    // XWayland the WM reparents for decorations, so translate to root coords.
+    if let Some((cur_x, cur_y)) = root_position(&conn, root, xid) {
+        if (cur_x - x).abs() <= 1 && (cur_y - y).abs() <= 1 {
+            return true;
+        }
+    }
 
     set_user_position_hint(&conn, xid, x, y, win_w, win_h);
     if let Some(moveresize) = atom(&conn, b"_NET_MOVERESIZE_WINDOW") {
@@ -125,6 +139,27 @@ pub fn center_on_primary(xid: u32, win_w: u32, win_h: u32) {
     // but harmless.
     let _ = conn.configure_window(xid, &ConfigureWindowAux::new().x(x).y(y));
     let _ = conn.flush();
+    // Move request just issued; not yet at target this pass.
+    false
+}
+
+/// The window's top-left in root coordinates, following the reparenting the WM
+/// does for its decoration frame (so the returned point matches the (x, y) a
+/// `_NET_MOVERESIZE_WINDOW` targets). `None` if the geometry can't be read.
+fn root_position<C: Connection>(conn: &C, root: u32, xid: u32) -> Option<(i32, i32)> {
+    let geom = conn.get_geometry(xid).ok()?.reply().ok()?;
+    let trans = conn
+        .translate_coordinates(xid, root, 0, 0)
+        .ok()?
+        .reply()
+        .ok()?;
+    // translate_coordinates already gives the child origin in root space; the
+    // geometry x/y (relative to the frame parent) are subtracted back out so the
+    // result is the frame's outer origin, which is what the move targets.
+    Some((
+        trans.dst_x as i32 - geom.x as i32,
+        trans.dst_y as i32 - geom.y as i32,
+    ))
 }
 
 /// Write `WM_NORMAL_HINTS` with the `USPosition` flag so Mutter treats our

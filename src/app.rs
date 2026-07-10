@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use crate::clipboard_backend::Backend;
 use crate::store::{Entry, Store};
-use crate::{config, icon_cache, monitor, tray, ui};
+use crate::{config, icon_cache, ipc, monitor, tray, ui};
 
 /// Shared, single-threaded application state passed into every GTK closure.
 pub struct AppState {
@@ -51,6 +51,10 @@ pub struct AppState {
     /// resolves to "hide" within `HIDE_GUARD` of a show is therefore ignored — this
     /// only ever suppresses a too-soon hide, never a show.
     pub last_show: Cell<Option<std::time::Instant>>,
+    /// Whether the window focused just before the popup opened is a terminal,
+    /// captured in `show()`. Decides the paste chord: terminals paste with
+    /// `Ctrl+Shift+V`, everything else with `Ctrl+V`.
+    pub paste_terminal: Cell<bool>,
 }
 
 pub type Shared = Rc<AppState>;
@@ -75,6 +79,9 @@ pub fn run() -> glib::ExitCode {
         // Persistent top-bar tray icon (StatusNotifierItem); daemon-only since
         // this closure runs solely in the primary instance.
         tray::install(app, &shared);
+        // Control socket the hotkey talks to, so `cliccy toggle` is a bare socket
+        // write instead of a second GTK/GApplication process. Also daemon-only.
+        ipc::install(&shared);
         // Keep the daemon resident even though the window starts hidden; the
         // guard is stored so it is not dropped at the end of this closure.
         *shared.hold.borrow_mut() = Some(app.hold());
