@@ -18,7 +18,7 @@ text & images. Built with **Rust + GTK4**. Works on X11 and Wayland.
   hover it with the pointer opens a side panel: the complete text, or the full
   image (scaled to fit, with its dimensions and size) for image rows
 - Pin snippets (`Ctrl+P`, never expire); delete one (`Delete`) or clear all (`cliccy clear`)
-- SQLite-backed, capped at 20 unpinned entries (pinned never expire)
+- SQLite-backed, capped at 100 unpinned entries (pinned never expire)
 - Top-bar tray icon: left-click to open, right-click for
   open / clear-history / quit. The popup is a normal window (it shows a dock
   entry while open) so GNOME maps and focuses it reliably every time
