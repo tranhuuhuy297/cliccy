@@ -196,6 +196,7 @@ pub fn build(app: &Application) -> Shared {
         suppress_focus_hide: Cell::new(false),
         last_show: Cell::new(None),
         preview: RefCell::new(None),
+        hover_gen: Cell::new(0),
         paste_terminal: Cell::new(false),
     });
 
@@ -245,6 +246,20 @@ fn wire_events(state: &Shared) {
             None => row.set_header(gtk::Widget::NONE),
         }
     });
+
+    // A wheel scroll drops the open hover preview (and any pending one). A popover
+    // is a native popup surface anchored to its row, so leaving one up while the
+    // list moves means repositioning that surface every frame — the stutter users
+    // see when scrolling with the mouse. Capture phase + Proceed: we only observe,
+    // the scrolled window still does the scrolling.
+    let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::BOTH_AXES);
+    scroll.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let s = state.clone();
+    scroll.connect_scroll(move |_, _, _| {
+        ui_preview::close(&s);
+        glib::Propagation::Proceed
+    });
+    state.scroller.add_controller(scroll);
 
     // Keyboard navigation, captured before the search entry consumes the keys.
     let key = EventControllerKey::new();

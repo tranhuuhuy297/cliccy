@@ -11,9 +11,11 @@
 
 use gtk::prelude::*;
 use gtk::{
-    pango, Box as GtkBox, EventControllerMotion, Label, ListBoxRow, Orientation, Popover,
+    glib, pango, Box as GtkBox, EventControllerMotion, Label, ListBoxRow, Orientation, Popover,
     PositionType, ScrolledWindow,
 };
+use std::rc::Rc;
+use std::time::Duration;
 
 use crate::app::Shared;
 use crate::store::{Entry, Kind};
@@ -98,6 +100,13 @@ pub fn toggle(state: &Shared) {
     }
 }
 
+/// How long the pointer must rest on a row before its preview opens. Each preview
+/// is a native popup surface, so opening one per row the pointer merely passes
+/// over is expensive — and rows sliding under a stationary pointer during a wheel
+/// scroll do exactly that, which is what made mouse scrolling stutter. The delay
+/// is short enough to still feel immediate when the pointer settles on a row.
+const HOVER_DELAY: Duration = Duration::from_millis(180);
+
 /// Attach a pointer-hover preview to `row` (the mouse path), mirroring the
 /// keyboard Space behaviour. Skipped for rows that already show everything, so
 /// hovering short entries pops nothing.
@@ -105,6 +114,8 @@ pub fn attach_hover(state: &Shared, row: &ListBoxRow, entry: &Entry) {
     let Some(preview) = previewable(entry) else {
         return;
     };
+    // Shared so the `Fn` enter handler can hand a clone to each scheduled open.
+    let preview = Rc::new(preview);
     let motion = EventControllerMotion::new();
 
     // Weak row handle so the controller's closures don't pin the row alive after
@@ -113,15 +124,31 @@ pub fn attach_hover(state: &Shared, row: &ListBoxRow, entry: &Entry) {
     let row_weak = row.downgrade();
     let s = state.clone();
     motion.connect_enter(move |_, _, _| {
-        if let Some(row) = row_weak.upgrade() {
-            show_for_row(&s, &row, &preview);
-        }
+        let generation = arm_hover(&s);
+        let (s, row_weak, preview) = (s.clone(), row_weak.clone(), preview.clone());
+        glib::timeout_add_local_once(HOVER_DELAY, move || {
+            // A leave, a scroll, or a hover onto another row bumped the counter:
+            // this open was cancelled while it waited.
+            if s.hover_gen.get() != generation {
+                return;
+            }
+            if let Some(row) = row_weak.upgrade() {
+                show_for_row(&s, &row, &preview);
+            }
+        });
     });
     let s = state.clone();
     motion.connect_leave(move |_| {
         close(&s);
     });
     row.add_controller(motion);
+}
+
+/// Cancel any pending hover open and return the generation identifying this one.
+fn arm_hover(state: &Shared) -> u64 {
+    let generation = state.hover_gen.get().wrapping_add(1);
+    state.hover_gen.set(generation);
+    generation
 }
 
 /// Replace any open preview with one anchored to `row` showing `text`. If a
@@ -149,6 +176,9 @@ fn show_for_row(state: &Shared, row: &ListBoxRow, preview: &Preview) {
 /// Also called on navigation/refresh/hide so a popover never lingers pointing at
 /// a row that's about to move or be removed.
 pub fn close(state: &Shared) -> bool {
+    // Also drops a hover open that's still waiting out its delay, so it can't pop
+    // up right after the caller closed everything.
+    arm_hover(state);
     if let Some(pop) = state.preview.borrow_mut().take() {
         pop.popdown();
         // Parented to a list row; unparent so removing that row on the next

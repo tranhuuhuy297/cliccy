@@ -44,6 +44,9 @@ pub struct AppState {
     /// can be dismissed on Esc, navigation, refresh, or hide, and unparented from
     /// its row before that row is removed.
     pub preview: RefCell<Option<gtk::Popover>>,
+    /// Generation counter for the pending hover-preview timer. Bumping it cancels
+    /// the pending open — the timer that finds a stale generation does nothing.
+    pub hover_gen: Cell<u64>,
     /// When the popup was last shown. A single hotkey press can reach the daemon
     /// as two near-simultaneous `cliccy toggle` processes (key repeat, an impatient
     /// double-press, a tray double-activate); the first shows the popup and the
